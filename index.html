@@ -73,7 +73,7 @@ h3{font-size:14px;margin:14px 0 8px}
 table.tc td,table.tc th{white-space:nowrap}.tt td{border-top:2px solid var(--line);font-weight:600}
 tr.fx td{background:var(--badbg)}
 details.mdl>summary{cursor:pointer;line-height:1.8}
-#dtable{min-width:860px}#dtable.nodet{min-width:720px}details.mdl table{min-width:560px}
+#dtable{min-width:860px}td.det{min-width:132px}.dh{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--mut);margin-top:4px}.dh:first-child{margin-top:0}#dtable.nodet{min-width:720px}details.mdl table{min-width:560px}
 @media(max-width:520px){.hb{grid-template-columns:76px 1fr 112px}.tabs button{padding:9px 4px;font-size:14px}}
 .nodet .det{display:none}
 .top{display:flex;justify-content:space-between;align-items:start;gap:10px}
@@ -92,7 +92,7 @@ details.mdl>summary{cursor:pointer;line-height:1.8}
 </head>
 <body>
 <main>
-<div class="top"><div><h1>Consumo de cartón <span class="chip ok" title="Versión técnica 5.1.0">Versión 1</span></h1><p class="sub">Captura en cm, cálculo y reportes en m².</p></div>
+<div class="top"><div><h1>Consumo de cartón <span class="chip ok" title="Versión técnica 5.1.1">Versión 1</span></h1><p class="sub">Captura en cm, cálculo y reportes en m².</p></div>
 <div class="mut" style="text-align:right"><label id="admw" style="white-space:nowrap"><input type="checkbox" id="adm" style="width:auto"> Modo admin</label><span id="ses" class="hide"></span></div></div>
 <section id="vlogin" class="card hide" style="max-width:380px;margin:24px auto">
 <h2>Iniciar sesión</h2><p class="mut" style="margin-top:0">En los equipos de planta se inicia sesión una sola vez; el equipo la recuerda.</p>
@@ -634,15 +634,6 @@ function totales(per,kind,cant){
   const e=est({kind,per,E,R,mismo});
   return{fx,E,R,Rsp,diff,abs:C.reduce((s,p)=>s+Math.abs(p.R-p.E),0),dm:cant?diff/cant:0,ce:S(per,'ce'),cr:S(per,'cr'),mismo,st:e.cls,est:e.t};
 }
-function lineText(p){
-  const cj=p.ce?` · cajas ${p.cr} (Cant ${p.ce})`:` · ${p.cr} caja(s)`;
-  if(p.sp)return`Cartón ${p.a} cm: ${fmt(p.R)} m² reales · sin programar (${p.spm==='sinop'?'la OP no tiene cartón en el ERP':p.spm==='cero'?'el ERP lo trae en 0 m²':'sin m² programados en el ERP'})${cj}`;
-  if(p.st==='na')return`Cartón ${p.a} cm: ${fmt(p.R)} m² reales${cj}`;
-  if(p.st==='pend')return`Cartón ${p.a} cm: sin capturar (esperado ${fmt(p.E)} m²)`;
-  if(!p.E)return`Cartón ${p.a} cm: ${fmt(p.R)} m² usados, no estaba esperado en el modelo${cj}`;
-  return`Cartón ${p.a} cm: ${fmt(p.R)} m² reales vs ${fmt(p.E)} esperados (${sgm(p.R-p.E)} m²)${cj}`;
-}
-const fxText=f=>`Por qué: cantidad de cajas ${sgm(f.q)} · tipo de cartón ${sgm(f.t)} · medidas ${sgm(f.m)} m²`+(f.d?` · 2.º cartón ${sgm(f.d)}`:'');
 // Real ≈ doble o ≈ mitad del esperado en un cartón programado → se le pide al operador que CONFIRME 1 o 2 cartones.
 // Confirmado, se guarda tal cual (sin alerta); administración ve la nota «confirmado por el operador».
 function dudas12(per){const out=[];per.filter(p=>p.E&&p.R).forEach(p=>{const k=p.R/p.E;if((k>=1.8&&k<=2.2)||(k>=0.45&&k<=0.55))out.push(p.a)});return out}
@@ -734,11 +725,21 @@ function filt(){
   const dOps=fs==='doble'?new Set(vis().filter(doblePend).map(r=>r.op)):null;   // muestra TODOS los reportes de la OP para comparar
   return vis().filter(r=>{const d=ymd(new Date(r.ts));return(!f||d>=f)&&(!t||d<=t)&&(!w||r.semana===w)&&(!v||vencW(r)===v)&&(!k||r.kind===k)&&(!o||(r.kind==='op'&&tipoReg(r)===o))&&(!c||clase(r.modelo)===c)&&(!dOps||(r.kind==='op'&&dOps.has(r.op)))&&(!sp||sp(est(r)))&&(!q||[r.modelo,r.op,tipoReg(r),modeloPrincipal(r.modelo)].join(' ').toLowerCase().includes(q))}).sort((a,b)=>b.ts-a.ts);
 }
+// Detalle del Tablero: consumo POR UNIDAD (mueble de la OP = Cant del ERP). Solo presenta; no cambia ningún cálculo.
+const bul=(t,v)=>`<div class="line">• ${t}: <b>${v.replace(/ (m²|cm)/g,'&nbsp;$1')}</b></div>`,dh=t=>`<div class="dh">${t}</div>`;
 function detail(r){
-  return r.per.map(p=>`<div class="line">${esc(lineText(p))}</div>`).join('')+(r.kind==='op'?`<div class="line mut">${fxText(r.fx)}</div>`:'')+
-  `<div class="line mut">${esc(tipoReg(r))} · ${clase(r.modelo)} · modelo principal ${esc(modeloPrincipal(r.modelo))} · registro ${r.semana}${r.venc?' · vence '+esc(r.venc):''}</div>`+
-  (r.conf12?`<div class="line mut">1/2 cartones confirmado por el operador (${esc([].concat(r.conf12).join(', '))} cm).</div>`:'')+
-  (r.com?`<div class="line"><b>Comentario:</b> ${esc(r.com)}</div>`:'');
+  const P=r.per||[],usa=P.filter(p=>p.R>0).map(p=>p.a+' cm').join(' + ')||'—';
+  const com=r.com?`<div class="line">• Comentario: ${esc(r.com)}</div>`:'';
+  if(r.kind!=='op'){const cj=r.cr||0;
+    return dh('Cartón')+bul('Utilizado',usa)+dh('Por caja')+bul('Real',cj?fmt(r.R/cj)+' m²':'—')+com}
+  const u=r.cant||1,prog=P.filter(pg).map(p=>p.a+' cm'+(p.z?' (0 m²)':'')).join(' + ')||'Sin cartón en el ERP';
+  const C=P.filter(p=>!p.sp&&(pg(p)||p.R>0)),sp=r.Rsp||0;
+  let h=dh('Cartón')+bul('Programado',prog)+bul('Utilizado',usa)+dh('Por unidad');
+  if(!C.length&&sp)h+=bul('Esperado','sin programar en el ERP')+bul('Real',fmt(sp/u)+' m²');
+  else{h+=bul('Esperado',fmt(r.E/u)+' m²')+bul('Real',fmt(r.R/u)+' m²')+bul('Diferencia',sgm((r.R-r.E)/u)+' m²');
+    if(C.length>1)h+=C.map(p=>`<div class="line mut">&nbsp;&nbsp;${p.a}&nbsp;cm: ${fmt(p.E/u)} → ${fmt(p.R/u)} (${sgm((p.R-p.E)/u)})</div>`).join('');
+    if(sp)h+=`<div class="line c-sinprog">• Sin programar: <b>+${fmt(sp/u)}&nbsp;m²</b></div>`}
+  return h+com;
 }
 // Programación del ERP para el Excel: cartones en 0 m² y OP sin cartón.
 const progTxt=r=>{const z=r.per.filter(p=>p.z).map(p=>p.a+' cm en 0 m²');if(r.kind==='op'&&!r.per.some(pg))return'OP sin cartón en el ERP';return z.join(', ')};
