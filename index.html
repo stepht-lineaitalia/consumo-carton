@@ -1,0 +1,994 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Consumo de cartón</title>
+<link rel="stylesheet" href="vendor/fonts.css">
+<script src="vendor/xlsx.full.min.js"></script>
+<script src="vendor/supabase.min.js"></script>
+<!-- config.js: URL y clave pública del proyecto de Supabase. Vacío = la app trabaja solo en el navegador. Ver GUIA-NUBE.md -->
+<script src="config.js"></script>
+<style>
+:root{--bg:#eef1f4;--card:#fff;--ink:#1b2733;--mut:#5d6b78;--line:#d3dae1;--acc:#0e7c86;--ok:#1e8e3e;--okbg:#e3f4e8;--bad:#c62828;--badbg:#fde8e8;--warn:#8a6100;--warnbg:#fff4d6;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#12181e;--card:#1b232b;--ink:#e6ebef;--mut:#95a3af;--line:#2d3944;--acc:#4cc2cc;--ok:#5fd07f;--okbg:#153322;--bad:#ff7b7b;--badbg:#3a1a1a;--warn:#f0c14b;--warnbg:#3a2f12}}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 "IBM Plex Sans",system-ui,Arial,sans-serif}
+main{max-width:960px;margin:0 auto;padding:16px}
+h1{font-size:22px;margin:0 0 2px}h2{font-size:16px;margin:0 0 10px}
+.sub,.mut{color:var(--mut)}.sub{margin:0 0 14px}.mut{font-size:13px}
+.tabs{display:flex;gap:6px;margin-bottom:14px}
+.tabs button{flex:1;padding:10px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;font:inherit;cursor:pointer}
+.tabs button.on{background:var(--acc);color:#fff;border-color:var(--acc)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:12px}
+input,select,textarea,button{font:inherit;color:var(--ink)}
+input,select,textarea{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px;min-width:0;width:100%}
+input:disabled{opacity:.6}
+:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+.btn{background:var(--acc);color:#fff;border:0;border-radius:6px;padding:9px 14px;cursor:pointer;font-weight:500}
+.btn.ghost{background:transparent;color:var(--acc);border:1px solid var(--acc)}
+.btn.sm{padding:5px 9px;font-size:13px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:end}
+.row>label{flex:1 1 110px;font-size:12px;color:var(--mut)}
+.hits{display:flex;flex-direction:column;gap:4px;margin-top:8px}
+.hit{text-align:left;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px;cursor:pointer}
+.chip{display:inline-block;padding:2px 9px;border-radius:99px;font-size:13px;font-weight:600}
+.ok{background:var(--okbg);color:var(--ok)}.bad{background:var(--badbg);color:var(--bad)}.pend{background:var(--warnbg);color:var(--warn)}
+.na{background:var(--bg);color:var(--mut);border:1px solid var(--line)}.err{background:var(--badbg);color:var(--bad);border:1px dashed var(--bad)}
+/* Colores de estado (ver ESTADOS en el código): fondo suave + texto del color, siempre con nombre visible */
+:root{--s-ok:#1e7d36;--s-okb:#e3f4e8;--s-cons:#8a6100;--s-consb:#fff1c2;--s-camb:#b34a00;--s-cambb:#ffe6d2;--s-cc:#c62828;--s-ccb:#fde3e3;--s-ex:#1d5fbf;--s-exb:#e1ecfd;--s-so:#3d4853;--s-sob:#e3e7eb;--s-pe:#5d6b78}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--s-ok:#5fd07f;--s-okb:#153322;--s-cons:#f0c14b;--s-consb:#3a2f12;--s-camb:#ff9d5c;--s-cambb:#3d2414;--s-cc:#ff7b7b;--s-ccb:#3a1a1a;--s-ex:#7fb2ff;--s-exb:#16263f;--s-so:#c3ccd5;--s-sob:#2a333c;--s-pe:#95a3af}}
+.st{display:inline-flex;align-items:center;gap:6px}.st::before{content:"";width:8px;height:8px;border-radius:50%;background:currentColor;flex:0 0 auto}
+.st-ok{background:var(--s-okb);color:var(--s-ok)}.st-cons{background:var(--s-consb);color:var(--s-cons)}.st-camb{background:var(--s-cambb);color:var(--s-camb)}
+.st-cambcons{background:var(--s-ccb);color:var(--s-cc)}.st-extra{background:var(--s-exb);color:var(--s-ex)}.st-sinop{background:var(--s-sob);color:var(--s-so)}
+.st-pend{background:transparent;color:var(--s-pe);border:1px solid var(--s-pe)}.st-err{background:var(--badbg);color:var(--bad);border:1px dashed var(--bad)}
+.c-ok{color:var(--s-ok)}.c-cons{color:var(--s-cons)}.c-camb{color:var(--s-camb)}.c-cambcons{color:var(--s-cc)}.c-extra{color:var(--s-ex)}.c-sinop{color:var(--s-so)}.c-pend{color:var(--s-pe)}
+tr.r-ok td:first-child{box-shadow:inset 4px 0 var(--s-ok)}tr.r-cons td:first-child{box-shadow:inset 4px 0 var(--s-cons)}tr.r-camb td:first-child{box-shadow:inset 4px 0 var(--s-camb)}
+tr.r-cambcons td:first-child{box-shadow:inset 4px 0 var(--s-cc)}tr.r-extra td:first-child{box-shadow:inset 4px 0 var(--s-ex)}tr.r-sinop td:first-child{box-shadow:inset 4px 0 var(--s-so)}
+tr.r-pend td:first-child{box-shadow:inset 4px 0 var(--line)}tr.r-err td:first-child{box-shadow:inset 4px 0 var(--bad)}
+.leg{display:flex;flex-wrap:wrap;gap:4px 12px;margin:2px 0 4px}.leg button{background:none;border:0;padding:2px 0;cursor:pointer;font-size:12px;color:var(--mut);display:inline-flex;align-items:center;gap:5px}
+.leg button i{width:10px;height:10px;border-radius:50%;display:inline-block}.leg button b{color:var(--ink);font-weight:600}.leg button.on{text-decoration:underline;color:var(--ink)}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+ul.rx{list-style:none;margin:0;padding:0}ul.rx li{position:relative;padding:3px 0 3px 26px;font-size:15px}
+ul.rx li::before{position:absolute;left:0;top:3px;width:18px;text-align:center;font-weight:700}
+.rx-ok::before{content:"✓";color:var(--s-ok)}.rx-at::before{content:"⚠";color:var(--s-camb)}.rx-in::before{content:"•";color:var(--mut)}
+.banner{padding:12px 14px;border-radius:8px;font-weight:600;margin-bottom:12px}
+.box{border-top:1px dashed var(--line);padding-top:8px;margin-top:8px}
+.head{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:baseline}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);vertical-align:top}
+.scroll{overflow-x:auto}.hide{display:none!important}
+body:not(.admin) .adm{display:none!important}
+body.ro .w{display:none!important}body.nube .loc{display:none!important}
+body.login main>*:not(.top):not(#vlogin){display:none!important}
+h3{font-size:14px;margin:14px 0 8px}
+.sec>h2{display:flex;gap:8px;align-items:center}.sn{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--acc);color:#fff;font-size:13px;flex:0 0 auto}
+.sec p{margin:0 0 6px}
+.al{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 12px;border-radius:8px;margin-bottom:6px;font-size:14px}
+.kpi .mut{display:block}
+table.tc td,table.tc th{white-space:nowrap}.tt td{border-top:2px solid var(--line);font-weight:600}
+tr.fx td{background:var(--badbg)}
+details.mdl>summary{cursor:pointer;line-height:1.8}
+#dtable{min-width:860px}#dtable.nodet{min-width:720px}details.mdl table{min-width:560px}
+@media(max-width:520px){.hb{grid-template-columns:76px 1fr 112px}.tabs button{padding:9px 4px;font-size:14px}}
+.nodet .det{display:none}
+.top{display:flex;justify-content:space-between;align-items:start;gap:10px}
+.line{margin:3px 0;font-size:13px}.tot{font-weight:600;font-size:14px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:12px}
+.kpi{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px}.kpi b{display:block;font-size:19px}
+.pos{color:var(--bad)}.neg{color:var(--acc)}
+.e{background:#8aa0b3}.re,.nb{background:var(--acc)}.pb{background:var(--bad)}.sw{display:inline-block;width:10px;height:10px;border-radius:2px}
+.hb{display:grid;grid-template-columns:110px 1fr 150px;gap:6px;align-items:center;font-size:12px;margin:4px 0}
+.hb>span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hb .tr{display:flex;height:14px;background:var(--bg);border-radius:3px}.hb .l,.hb .r{width:50%;display:flex}.hb .l{justify-content:flex-end}.hb i{display:block;height:100%}
+.gb{display:flex;gap:10px;height:170px;overflow-x:auto}
+.gb>div{flex:1 0 62px;text-align:center;font-size:11px;display:flex;flex-direction:column;justify-content:flex-end}
+.gb .pr{display:flex;gap:3px;align-items:flex-end;height:100px;justify-content:center}.gb .pr i{width:16px;display:block;border-radius:3px 3px 0 0}
+</style>
+</head>
+<body>
+<main>
+<div class="top"><div><h1>Consumo de cartón <span class="chip ok" title="Versión técnica 5.0.1">Versión 1</span></h1><p class="sub">Captura en cm, cálculo y reportes en m².</p></div>
+<div class="mut" style="text-align:right"><label id="admw" style="white-space:nowrap"><input type="checkbox" id="adm" style="width:auto"> Modo admin</label><span id="ses" class="hide"></span></div></div>
+<section id="vlogin" class="card hide" style="max-width:380px;margin:24px auto">
+<h2>Iniciar sesión</h2><p class="mut" style="margin-top:0">En los equipos de planta se inicia sesión una sola vez; el equipo la recuerda.</p>
+<form id="flogin"><label class="mut">Correo<input id="lmail" type="email" autocomplete="username" required></label>
+<label class="mut" style="display:block;margin-top:8px">Contraseña<input id="lpw" type="password" autocomplete="current-password" required></label>
+<button class="btn" type="submit" style="margin-top:12px;width:100%">Entrar</button></form><p id="lmsg" class="mut" style="color:var(--bad)"></p></section>
+<dialog id="dlg" style="border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);width:min(320px,90vw)"><p id="dmsg" style="margin:0 0 8px;font-weight:600"></p><input type="password" id="dpw" autocomplete="off"><input type="password" id="dpw2" class="hide" placeholder="Repite la contraseña" style="margin-top:6px" autocomplete="off"><p class="mut" id="derr" style="color:var(--bad);margin:6px 0"></p><div class="row"><button class="btn" id="dok">Aceptar</button><button class="btn ghost" id="dno">Cancelar</button></div></dialog>
+<p class="mut hide" id="dbstat" role="status" aria-live="polite" style="margin:0 0 8px"></p>
+<div class="tabs adm"><button id="t1" class="on w">Captura</button><button id="t3">Análisis</button><button id="t4">Modelos</button><button id="t2">Tablero</button></div>
+
+<section id="v1">
+<details class="card adm w" open>
+<summary><b>Configuración (admin)</b> <span class="mut" id="catinfo"></span></summary>
+<p class="mut">Sube el Excel «Consumo Extras» (hoja <b>Data</b>). Solo entran las líneas con código de cartón del catálogo; CompEsperados = m² esperados de cada cartón y Cant = cajas esperadas. Las OP nuevas se agregan y las existentes se actualizan.</p>
+<input type="file" id="file" accept=".xlsx,.xls,.csv"><p class="mut" id="filemsg"></p>
+<div class="row"><label>Tolerancia (±% del esperado)<input id="tol" type="number" min="0"></label><button class="btn ghost sm loc" id="cpw">Cambiar contraseña</button><button class="btn ghost sm" id="bk">Respaldo (JSON)</button><label class="btn ghost sm" style="flex:0 0 auto;margin:0">Importar respaldo<input type="file" id="bki" accept=".json" class="hide"></label></div>
+<details class="box"><summary><b>Catálogo de cartones</b> <span class="mut">(código del componente en el ERP → ancho)</span></summary>
+<div id="cartcfg" style="margin-top:6px"></div>
+<div class="row" style="margin-top:6px"><label>Código<input id="ncod" inputmode="numeric" autocomplete="off"></label><label>Ancho (cm)<input id="nanc" type="number" min="1"></label><button class="btn ghost sm" id="addcart" type="button">Agregar / actualizar</button></div></details>
+<details class="box"><summary><b>Operadores</b> <span class="mut">(nombres para elegir en planta)</span></summary>
+<label class="mut">Uno por línea. Si la lista está vacía, no se pregunta quién captura.<textarea id="oprcfg" rows="5"></textarea></label>
+<div class="row" style="margin-top:6px"><button class="btn ghost sm" id="saveopr" type="button">Guardar operadores</button></div></details>
+<details class="box"><summary><b>Tipos de OP y exclusiones</b></summary>
+<label class="mut">Tipos de OP (uno por línea: PREFIJO = Nombre). «OP» + número es Normal; un prefijo no listado entra como «Otro» con aviso.<textarea id="tipcfg" rows="5"></textarea></label>
+<label class="mut">Prefijos excluidos al cargar (separados por coma): no aparecen en ningún reporte<input id="exccfg"></label>
+<div class="row" style="margin-top:6px"><button class="btn ghost sm" id="savetip" type="button">Guardar tipos y exclusiones</button></div></details>
+<p class="mut" id="cfgmsg"></p>
+</details>
+
+<div class="card hide" id="opcard"></div>
+<div class="card">
+<h2>¿Qué vas a registrar?</h2>
+<div class="row"><label>Tipo<select id="kind"><option value="op">OP</option><option value="ing">Caja de Ingeniería</option><option value="inc">Inclusión</option></select></label></div>
+<div id="srch" style="margin-top:8px"><input id="q" placeholder="Escribe modelo u OP…" autocomplete="off"><div class="hits" id="hits"></div></div>
+<div id="manual" class="hide" style="margin-top:8px"><p class="mut" id="kindhint" style="margin:0 0 6px"></p><label class="mut">Modelo del mueble<input id="mm" list="mlist" autocomplete="off"></label><datalist id="mlist"></datalist><button class="btn" id="mgo" style="margin-top:8px">Empezar captura</button></div>
+</div>
+
+<div id="work" class="hide">
+<div class="card"><div class="head"><h2 id="wtitle" style="margin:0"></h2><span id="wchips"></span></div><p class="mut" id="wmeta" style="margin:4px 0 0"></p></div>
+<div id="form"></div>
+<div class="row" style="margin-bottom:12px"><button class="btn ghost" id="addx" type="button">+ Agregar cartón</button></div>
+<div class="card"><label class="mut">Comentarios (opcional)<textarea id="com" rows="2"></textarea></label></div>
+<div class="row"><button class="btn" id="save">Guardar</button><button class="btn ghost" id="clear">Limpiar</button></div>
+</div>
+<p id="savemsg" style="margin:10px 0"></p>
+<div class="card" id="hoy"></div>
+</section>
+
+<div class="card hide" id="flt"><div class="row">
+<label>Registrado desde<input type="date" id="ff"></label><label>Registrado hasta<input type="date" id="ft"></label>
+<label>Semana de registro<select id="fw"></select></label><label>Semana de vencimiento OP<select id="fv"></select></label>
+<label>Tipo de registro<select id="fk"><option value="">Todos</option><option value="op">OP</option><option value="inc">Inclusión</option><option value="ing">Caja de Ingeniería</option></select></label>
+<label>Tipo de OP<select id="fo"></select></label>
+<label>Clase<select id="fc"><option value="">Todas</option><option>Folio</option><option>Línea</option></select></label>
+<label>Estado<select id="fs"></select></label>
+<label style="flex:2 1 160px">Modelo u OP<input id="fq" placeholder="Filtrar…"></label>
+<label id="ddetw" style="flex:0 0 auto">Detalle<br><input type="checkbox" id="ddet" style="width:auto"></label><button class="btn ghost sm" id="fclr" type="button">Limpiar filtros</button></div>
+<div class="row adm" style="margin-top:10px"><button class="btn" id="xbtn">Exportar Excel (filtro actual)</button></div>
+<p class="mut" id="dsum"></p></div>
+<section id="v2" class="hide"><div class="card"><div class="leg" id="leg" aria-label="Leyenda de estados (clic para filtrar)"></div><div class="scroll"><table id="dtable"><thead><tr><th>Fecha</th><th>Modelo / OP</th><th>Estado</th><th>Cartón prog. → usado</th><th class="n">m² esperados</th><th class="n">m² reales</th><th class="n">Diferencia (m²)</th><th>Cajas<br><span class="mut">Cant → capt.</span></th><th class="det">Detalle</th><th class="adm"></th></tr></thead><tbody id="dbody"></tbody></table></div><p><button class="btn ghost sm hide" id="more">Mostrar más</button></p></div></section>
+<section id="v3" class="hide"><div id="ana"></div></section>
+<section id="v4" class="hide">
+<section class="card sec"><h2><span class="sn">7</span> Seguimiento de modelos</h2>
+<p class="mut" style="margin-top:0">Cada modelo principal con sus variantes (colores o versiones). Una variante queda <b>fuera del patrón</b> si usa un cartón distinto al de la mayoría del modelo o si sus m² por mueble se alejan más de la tolerancia de lo típico del modelo. Solo OP completas del periodo filtrado.</p>
+<div class="kpis" id="mkpi"></div>
+<label class="mut"><input type="checkbox" id="mrev" checked style="width:auto"> Solo los que requieren revisión</label>
+<details class="box w"><summary class="mut">Agrupación de modelos: <b id="mreglas"></b></summary>
+<p class="mut">Las reglas definitivas se cargarán cuando el negocio las entregue. Mientras, puedes forzar cómo se agrupa un código (uno por línea: CÓDIGO = MODELO PRINCIPAL).</p>
+<textarea id="mexc" rows="5"></textarea><div class="row" style="margin-top:6px"><button class="btn ghost sm" id="msave" type="button">Guardar excepciones</button></div><p class="mut" id="mmsg"></p></details>
+</section>
+<div id="mlista"></div>
+</section>
+</main>
+
+<script>
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const num=v=>parseFloat(String(v).replace(',','.'))||0;
+const fmt=n=>n.toFixed(2),sgm=d=>(d>0?'+':'')+d.toFixed(2),r3=x=>Math.round(x*1000)/1000;
+// Variación % = (real − esperado) / esperado × 100
+const vp=(R,E)=>E?(R-E)/E*100:null,pct=(R,E)=>{const v=vp(R,E);return v==null?'—':(v>0?'+':'')+v.toFixed(1)+' %'};
+const p2=n=>String(n).padStart(2,'0'),ymd=d=>d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate());
+const parseISO=s=>{const m=String(s).match(/^(\d{4})-(\d\d)-(\d\d)/);return m?new Date(+m[1],m[2]-1,+m[3]):new Date()};
+function isoWeek(d){d=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));const n=d.getUTCDay()||7;d.setUTCDate(d.getUTCDate()+4-n);const y=d.getUTCFullYear();return y+'-S'+p2(Math.ceil(((d-Date.UTC(y,0,1))/864e5+1)/7))}
+function isoDate(v){
+  if(v instanceof Date){const d=new Date(v.getTime()+432e5);return ymd(d)}
+  if(typeof v==='number'){const d=new Date(Math.round((v-25569)*864e5));return d.getUTCFullYear()+'-'+p2(d.getUTCMonth()+1)+'-'+p2(d.getUTCDate())}
+  const s=String(v||'');if(/^\d{4}-\d\d-\d\d/.test(s))return s.slice(0,10);
+  const m=s.match(/(\d+)\/(\d+)\/(\d+)/);if(m)return(m[3].length<4?'20'+m[3]:m[3])+'-'+p2(m[2])+'-'+p2(m[1]);
+  return ymd(new Date());
+}
+/* ==== REGLAS DE NEGOCIO CONFIGURABLES ====
+   Valores iniciales; el admin los cambia desde Configuración y se guardan con DB.saveSettings (viven como datos, no en el código). */
+const DEF_CFG={
+  tol:15,
+  // Código EXACTO del componente en el ERP → ancho del cartón (cm). Solo estas líneas entran al cargar el Excel.
+  cartones:{'10202004':92,'10202002':100,'10202003':120,'10202005':140,'10202006':160},
+  // Prefijo de OP → tipo. Se revisa del más largo al más corto. «OP»+número = Normal.
+  prefijos:{OPGS:'Garantía servicio',OPAF:'Showroom',OPG:'Garantía',OPV:'Vacuna'},
+  // OP que no consumen cartón para este análisis: se descartan al cargar.
+  excluir:['OPP','OPM'],
+  // Excepciones de agrupación de modelos (código exacto → modelo principal). Inicial: la hoja «Excepciones» del maestro.
+  modelosExc:{'C2-2210L':'C2-2210','C2-2203BH':'C2-2203','LINBKD3S-FWN':'LINBKD3S','YPCUBSETT-LD150':'Y-CUBSETTL150','YPCUBSETT-LI150':'Y-CUBSETTL150'}
+};
+let cfg=JSON.parse(JSON.stringify(DEF_CFG));
+const KINDS={op:'OP',ing:'Caja de Ingeniería',inc:'Inclusión'};
+const prefOp=op=>(String(op).toUpperCase().match(/^[A-Z]+/)||[''])[0];
+function tipoOp(op){
+  const s=String(op||'').toUpperCase().trim();
+  const p=Object.keys(cfg.prefijos).sort((a,b)=>b.length-a.length).find(k=>s.startsWith(k.toUpperCase()));
+  if(p)return cfg.prefijos[p];
+  if(/^OP\d/.test(s))return'Normal';
+  return'Otro ('+(prefOp(s)||'sin prefijo')+')';
+}
+const opDesconocida=op=>/^Otro \(/.test(tipoOp(op));
+// Excluida si sus letras iniciales son exactamente un prefijo excluido (OPP00012 → «OPP»).
+const excluida=op=>{const p=prefOp(op);return!!p&&cfg.excluir.some(q=>String(q).toUpperCase().trim()===p)};
+// Tipo que se muestra en tablero, filtros, análisis y exportación (se calcula al leer, no se guarda).
+const tipoReg=r=>r.kind==='op'?tipoOp(r.op):KINDS[r.kind]||KINDS.inc;
+const clase=m=>/^F/i.test(String(m).trim())?'Folio':'Línea';
+const tipoModelo=clase;
+
+/* ==== AGRUPACIÓN DE MODELOS (PROVISIONAL) ====
+   Pieza reemplazable: cuando el negocio entregue sus reglas y claves, se cambia SOLO AGRUPACION.clave (y las excepciones).
+   Hoy reproduce las reglas del archivo maestro (hojas Aux_Modelo y Excepciones), en este orden:
+   0) excepción explícita (código exacto → modelo principal), editable en la pestaña Modelos;
+   1) «C<dígito>-…»  → C2-2210L = «C2-2210»;   2) «SKLASS…» → SKLASS + número;   3) «FA-»/«FC-» → F + número;
+   4) «CUB…» → hasta el final del primer número;  5) «KLASS…» → código completo;
+   6) sin número → código sin «-ESP»/«-FWN»;      7) con número → el primer número (las letras se consideran color/variante). */
+const AGRUPACION={nombre:'Provisional: reglas del archivo maestro',
+  clave(cod){
+    const c=String(cod==null?'':cod).trim().toUpperCase();if(!c)return'(sin código)';
+    const ex=cfg.modelosExc||{};if(ex[c])return String(ex[c]).toUpperCase();
+    const dig=x=>(x.match(/^\d+/)||[''])[0];let m;
+    if((m=c.match(/^(C\d-)(.*)$/))){const d=dig(m[2]);return d?m[1]+d:c}
+    if(c.startsWith('SKLASS'))return'SKLASS'+dig(c.slice(6));
+    if(/^F[AC]-/.test(c)){const d=dig(c.slice(3));return d?'F'+d:c}
+    if(c.startsWith('CUB')){const k=c.search(/\d/);return k<0?c:c.slice(0,k)+c.slice(k).match(/^\d{1,6}/)[0]}
+    if(c.startsWith('KLASS'))return c;
+    const k=c.search(/\d/);if(k<0)return c.replace(/-(ESP|FWN)$/,'');
+    return String(+c.slice(k).match(/^\d{1,6}/)[0]);
+  }};
+const modeloPrincipal=cod=>AGRUPACION.clave(cod);
+
+const SAMPLE=[
+{op:'OP09252206',modelo:'LINDT7230-ESP',desc:'72X30 DESKTOP W/MOD PANEL-ESPRESSO',cant:5,estado:'Lanzada',term:5,pend:0,fecha:'2026-10-12',demo:1,rows:[{ancho:120,val:25.82}]},
+{op:'OP09252635',modelo:'NL134A',desc:'',cant:3,estado:'Lanzada',term:0,pend:3,fecha:'2026-10-14',demo:1,rows:[{ancho:92,val:5.082},{ancho:100,val:5.526}]},
+{op:'OP09252616',modelo:'X650',desc:'',cant:1,estado:'Lanzada',term:0,pend:1,fecha:'2026-10-14',demo:1,rows:[{ancho:120,val:3.77},{ancho:92,val:2.59}]}];
+
+/* ==== CAPA DE DATOS (inicio) ====
+   Única parte de la app que sabe DÓNDE se guardan los datos; el resto solo llama a DB.*
+   Contrato (todo asíncrono; lanza Error si algo falla, nunca falla en silencio):
+     listReports()            → reportes válidos (repara los dañados)
+     saveReport(rep)          → inserta o reemplaza por id (asigna id si falta) y VERIFICA que quedó guardado
+     deleteReport(id)         importReports(arr) → {added,total}
+     getCatalog()             upsertOps(ops,{overwrite}) → catálogo resultante (quita las OP de demostración)
+     getSettings()            saveSettings({tol,cartones,prefijos,excluir,modelosExc})  (lo que falte toma el valor inicial DEF_CFG)
+     listOperadores()         saveOperadores(lista)   (nombres para elegir en planta)
+     getAuth() setAuth(a)     contraseña de admin del modo local (en la nube: sesion(), entrar(), salir())
+     onChange(cb)             avisa cuando otro usuario/pestaña cambió los reportes
+   Implementaciones: LocalDB (navegador) y CloudDB (Supabase). Errores con code: quota, verify, conflict, auth. */
+const fin=v=>typeof v==='number'&&isFinite(v);
+let nfix=0;
+function norm(r){
+  if(!r||typeof r!=='object'||Array.isArray(r)){nfix++;return null}
+  const o={...r};let fx=false;
+  if(o.kind==='sin')o.kind='inc';                       // «Caja sin OP» se eliminó (v4.3): se lee como Inclusión
+  if(!['op','ing','inc'].includes(o.kind)){o.kind=(o.op&&o.op!=='—')?'op':'inc';fx=true}
+  let ts=Number(o.ts);if(!(ts>0)){ts=Number(o.id);if(!(ts>0))ts=Date.now();fx=true}o.ts=ts;
+  if(o.id==null||o.id===''){o.id=ts;fx=true}
+  if(!Array.isArray(o.per)){o.per=[];fx=true}
+  o.per=o.per.filter(p=>p&&typeof p==='object').map(p=>{const q={...p};['a','E','R','ce','cr'].forEach(k=>{if(!fin(q[k])){q[k]=Number(q[k])||0;fx=true}});return q});
+  const S=k=>o.per.reduce((t,p)=>t+p[k],0);
+  if(!fin(o.E)){o.E=S('E');fx=true}if(!fin(o.R)){o.R=S('R');fx=true}
+  if(!fin(o.diff)){o.diff=o.R-o.E;fx=true}
+  if(!fin(o.abs)){o.abs=o.per.reduce((t,p)=>t+Math.abs(p.R-p.E),0);fx=true}
+  if(!fin(o.ce)){o.ce=S('ce');fx=true}if(!fin(o.cr)){o.cr=S('cr');fx=true}
+  if(!fin(o.cant)){o.cant=Number(o.cant)||0;fx=true}
+  if(!fin(o.dm)){o.dm=o.cant?o.diff/o.cant:0;fx=true}
+  if(!o.fx||typeof o.fx!=='object'){o.fx={q:0,t:0,d:0,m:0};fx=true}
+  ['modelo','op','tipoOp','com','estadoERP'].forEach(k=>{if(typeof o[k]!=='string'){o[k]=o[k]==null?(k==='op'?'—':''):String(o[k]);fx=true}});
+  if(typeof o.semana!=='string'||!o.semana){o.semana=isoWeek(new Date(ts));fx=true}
+  if(typeof o.venc!=='string')o.venc='';
+  if(!o.snap||typeof o.snap!=='object'||!Array.isArray(o.snap.lines)||!Array.isArray(o.snap.rows)){o.snap={rows:[],lines:[],com:o.com};fx=true}
+  if(fx)nfix++;return o;
+}
+// Configuración guardada + valores iniciales (DEF_CFG) para lo que falte o venga dañado. Común a LocalDB y CloudDB.
+function mezclarCfg(t,c){c=c||{};const d=JSON.parse(JSON.stringify(DEF_CFG));
+  const okMap=(m,f)=>m&&typeof m==='object'&&!Array.isArray(m)&&Object.keys(m).length&&Object.values(m).every(f);
+  return{tol:fin(t)?t:DEF_CFG.tol,
+    cartones:okMap(c.cartones,v=>fin(v)&&v>0)?c.cartones:d.cartones,
+    prefijos:okMap(c.prefijos,v=>typeof v==='string'&&v.trim())?c.prefijos:d.prefijos,
+    excluir:Array.isArray(c.excluir)?c.excluir.map(String):d.excluir,
+    modelosExc:c.modelosExc&&typeof c.modelosExc==='object'&&!Array.isArray(c.modelosExc)?c.modelosExc:d.modelosExc}}
+const LocalDB=(()=>{
+  const K={rep:'cc_reports3',bad:'cc_reports3_corrupt',cat:'cc_cat3',tol:'cc_tol',cfg:'cc_cfg',auth:'cc_auth',opr:'cc_operadores'};
+  let corruptWarned=false;
+  const get=(k,d)=>{try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}};
+  const put=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){const x=new Error('No se pudo escribir en el almacenamiento del navegador (¿lleno?).');x.code='quota';throw x}};
+  const newId=a=>{let i=Date.now();const t=new Set(a.map(r=>r.id));while(t.has(i))i++;return i};
+  const seed=()=>{const c={};SAMPLE.forEach(o=>c[o.op]=JSON.parse(JSON.stringify(o)));return c};
+  const api={name:'local',repaired:0,warn(){},
+    read(){
+      let raw=null,arr=[];nfix=0;
+      try{raw=localStorage.getItem(K.rep)}catch(e){}
+      if(raw){try{const p=JSON.parse(raw);if(!Array.isArray(p))throw 0;arr=p}
+        catch(e){try{if(localStorage.getItem(K.bad)!==raw)localStorage.setItem(K.bad,raw)}catch(x){}
+          if(!corruptWarned){corruptWarned=true;api.warn('⚠ Los reportes guardados no se pudieron leer. Se conservó una copia en el navegador (cc_reports3_corrupt). Avisa al administrador antes de seguir capturando.')}}}
+      const seen=new Set(),out=[];
+      arr.forEach(r=>{const o=norm(r);if(!o)return;
+        if(seen.has(o.id)){let i=Number(o.id)||o.ts;while(seen.has(i))i++;o.id=i;nfix++}
+        seen.add(o.id);out.push(o)});
+      api.repaired=nfix;return out;
+    },
+    async listReports(){return api.read()},
+    async saveReport(rep){
+      const fresh=api.read(),r={...rep};
+      if(r.id==null||r.id==='')r.id=newId(fresh);
+      put(K.rep,fresh.some(x=>x.id===r.id)?fresh.map(x=>x.id===r.id?r:x):[r,...fresh]);
+      if(!api.read().some(x=>x.id===r.id)){const x=new Error('El reporte no quedó en el almacenamiento.');x.code='verify';throw x}
+      return r;
+    },
+    async deleteReport(id){put(K.rep,api.read().filter(r=>String(r.id)!==String(id)))},
+    async importReports(arr){
+      const inc=arr.map(norm).filter(Boolean),a=api.read(),by=new Map(a.map(r=>[r.id,r]));let add=0;
+      inc.forEach(r=>{const x=by.get(r.id);if(x&&x.ts===r.ts)return;if(x)r.id=newId([...a,...inc]);a.push(r);by.set(r.id,r);add++});
+      a.sort((p,q)=>q.ts-p.ts);put(K.rep,a);return{added:add,total:a.length};
+    },
+    async getCatalog(){return get(K.cat,null)||seed()},
+    async upsertOps(ops,o){
+      const c=get(K.cat,null)||seed();Object.keys(c).forEach(k=>{if(c[k].demo)delete c[k]});
+      Object.keys(ops||{}).forEach(k=>{if((o&&o.overwrite)||!c[k])c[k]=ops[k]});put(K.cat,c);return c;
+    },
+    async getSettings(){return mezclarCfg(get(K.tol,DEF_CFG.tol),get(K.cfg,{})||{})},
+    async saveSettings(s){if(!s)return;if('tol' in s)put(K.tol,s.tol);
+      const c=get(K.cfg,{})||{};let ch=false;['cartones','prefijos','excluir','modelosExc'].forEach(k=>{if(k in s){c[k]=s[k];ch=true}});if(ch)put(K.cfg,c)},
+    async listOperadores(){const l=get(K.opr,[]);return Array.isArray(l)?l.map(String):[]},
+    async saveOperadores(l){put(K.opr,l)},
+    async getAuth(){return get(K.auth,null)},
+    async setAuth(a){put(K.auth,a)},
+    onChange(cb){window.addEventListener('storage',e=>{if(e.key===K.rep)cb()})}
+  };
+  return api;
+})();
+const CloudDB=sb=>{
+  // Nube (Supabase/Postgres). Mismo contrato que LocalDB. Tablas y permisos: supabase/esquema.sql.
+  // El reporte completo se guarda en «data» (jsonb); id y version los asigna la base.
+  const err=(e,code)=>{const x=new Error(e&&e.message||String(e));x.code=code||(e&&e.code);
+    if(x.code==='40001'||/conflicto de versión/i.test(x.message)){x.code='conflict';x.message='Otro usuario modificó este reporte mientras lo editabas. Recarga y vuelve a intentar.'}
+    if(/JWT|session|401/i.test(x.message)&&x.code!=='conflict')x.code='auth';
+    return x};
+  const run=async q=>{const {data,error}=await q;if(error)throw err(error);return data};
+  // Supabase entrega como máximo 1000 renglones por consulta: se pide por páginas.
+  const todo=async mk=>{let out=[],i=0;for(;;){const d=await run(mk().range(i,i+999));out=out.concat(d||[]);if(!d||d.length<1000)return out;i+=1000}};
+  const COLS='id,version,rev,operador,data';
+  const desde=w=>({...w.data,id:w.id,version:w.version,rev:!!w.rev,operador:w.operador||w.data.operador||''});
+  const fila=r=>{const d={...r};['id','version'].forEach(k=>delete d[k]);
+    return{ts:r.ts,kind:r.kind,op:r.op,modelo:r.modelo,semana:r.semana,operador:r.operador||null,rev:!!r.rev,data:d}};
+  let perfil=null;
+  const api={name:'nube',repaired:0,warn(){},
+    async listReports(){nfix=0;const rows=await todo(()=>sb.from('reportes').select(COLS).is('deleted_at',null).order('ts',{ascending:false}));
+      const out=[];rows.forEach(w=>{const o=norm(desde(w));if(o)out.push(o)});api.repaired=nfix;return out},
+    async saveReport(rep){
+      if(rep.id==null||rep.id==='')return desde(await run(sb.from('reportes').insert(fila(rep)).select(COLS).single()));
+      const v=Number(rep.version)||1;
+      const d=await run(sb.from('reportes').update({...fila(rep),version:v+1}).eq('id',rep.id).eq('version',v).select(COLS));
+      if(!d||!d.length)throw err({message:''},'40001');
+      return desde(d[0])},
+    async deleteReport(id){   // borrado lógico: el reporte queda en la base y en la bitácora
+      const d=await run(sb.from('reportes').select('id,version').eq('id',id));if(!d||!d.length)return;
+      const u=await run(sb.from('reportes').update({deleted_at:new Date().toISOString(),version:d[0].version+1}).eq('id',id).eq('version',d[0].version).select('id'));
+      if(!u||!u.length)throw err({message:''},'40001')},
+    async importReports(arr){   // sube un respaldo JSON (p. ej. el de un navegador del piloto); no duplica lo que ya está
+      const ya=await api.listReports(),k=r=>r.ts+'|'+r.op+'|'+r.modelo,hay=new Set(ya.map(k));
+      const nuevos=arr.map(norm).filter(Boolean).filter(r=>!hay.has(k(r))).map(r=>{hay.add(k(r));const x={...r};delete x.id;delete x.version;return fila(x)});
+      for(let i=0;i<nuevos.length;i+=500)await run(sb.from('reportes').insert(nuevos.slice(i,i+500)));
+      return{added:nuevos.length,total:ya.length+nuevos.length}},
+    async getCatalog(){const rows=await todo(()=>sb.from('ops').select('op,data').order('op'));const c={};rows.forEach(w=>c[w.op]=w.data);return c},
+    async upsertOps(ops,o){const rows=Object.keys(ops||{}).map(k=>({op:k,data:ops[k],updated_at:new Date().toISOString()}));
+      for(let i=0;i<rows.length;i+=500)await run(sb.from('ops').upsert(rows.slice(i,i+500),{onConflict:'op',ignoreDuplicates:!(o&&o.overwrite)}));
+      return api.getCatalog()},
+    async getSettings(){const rows=await run(sb.from('config').select('k,v'));const c={};(rows||[]).forEach(w=>c[w.k]=w.v);return mezclarCfg(c.tol,c)},
+    async saveSettings(s){if(!s)return;const rows=['tol','cartones','prefijos','excluir','modelosExc'].filter(k=>k in s).map(k=>({k,v:s[k],updated_at:new Date().toISOString()}));
+      if(rows.length)await run(sb.from('config').upsert(rows,{onConflict:'k'}))},
+    async listOperadores(){return(await run(sb.from('operadores').select('nombre,activo').order('nombre'))||[]).filter(x=>x.activo).map(x=>x.nombre)},
+    async saveOperadores(lista){const ya=await run(sb.from('operadores').select('nombre,activo'))||[],L=new Set(lista);
+      const rows=[...lista.map(n=>({nombre:n,activo:true})),...ya.filter(x=>!L.has(x.nombre)).map(x=>({nombre:x.nombre,activo:false}))];
+      if(rows.length)await run(sb.from('operadores').upsert(rows,{onConflict:'nombre'}))},
+    // Sesión: usuario de Supabase Auth + su rol en «perfiles» (admin / planta / consulta)
+    async sesion(){const {data}=await sb.auth.getSession();const u=data&&data.session&&data.session.user;if(!u){perfil=null;return null}
+      const p=await run(sb.from('perfiles').select('rol,nombre').eq('user_id',u.id));perfil={email:u.email,rol:p&&p[0]?p[0].rol:null,nombre:p&&p[0]?p[0].nombre:''};return perfil},
+    async entrar(email,pw){const {error}=await sb.auth.signInWithPassword({email,password:pw});if(error)throw err({message:/invalid/i.test(error.message)?'Correo o contraseña incorrectos.':error.message},'auth');return api.sesion()},
+    async salir(){await sb.auth.signOut()},
+    async getAuth(){return null},async setAuth(){},
+    onChange(cb){try{sb.channel('reportes').on('postgres_changes',{event:'*',schema:'public',table:'reportes'},()=>cb()).subscribe()}catch(e){}}
+  };
+  return api;
+};
+// La app usa la nube si config.js trae la URL y la clave pública del proyecto; si no, trabaja en el navegador (LocalDB).
+const NUBE=window.CC_CONFIG&&CC_CONFIG.supabaseUrl&&CC_CONFIG.supabaseAnonKey&&window.supabase;
+const DB=NUBE?CloudDB(supabase.createClient(CC_CONFIG.supabaseUrl,CC_CONFIG.supabaseAnonKey,{auth:{persistSession:true,autoRefreshToken:true}})):LocalDB;
+DB.warn=m=>alert(m);
+// Preferencias de ESTE equipo (no son datos del negocio): p. ej. el operador elegido. Nunca fallan.
+const PREF={get(k){try{return localStorage.getItem('cc_pref_'+k)||''}catch(e){return''}},set(k,v){try{v?localStorage.setItem('cc_pref_'+k,v):localStorage.removeItem('cc_pref_'+k)}catch(e){}}};
+/* ==== CAPA DE DATOS (fin) ==== */
+let cat={},reports=[],tolv=DEF_CFG.tol,admin=false,W=null,editId=null,saving=false;
+// Estado de carga/guardado visible (para cuando los datos vivan en la nube)
+const stat=(m,err)=>{const e=$('#dbstat');e.textContent=m||'';e.style.color=err?'var(--bad)':'';e.classList.toggle('hide',!m)};
+function dbErr(e,ctx){stat('⚠ '+(ctx?ctx+': ':'')+(e&&e.message||e),true);if(e&&e.code==='quota')alert('⚠ No se pudo guardar en este navegador (almacenamiento lleno). Descarga un respaldo (admin) ya.')}
+async function reload(){try{reports=await DB.listReports();return true}catch(e){dbErr(e,'No se pudieron leer los datos');return false}}
+const CH={ok:'Correcto',bad:'Con diferencia',pend:'Incompleto',na:'Sin esperado'};
+/* ==== ESTADOS (fuente única) ====
+   Nombre, nombre corto (leyenda), color y significado de cada estado. La leyenda, las etiquetas, el filtro de Estado,
+   las alertas y los colores de Análisis/Modelos salen de esta tabla: agregar, renombrar o recolorear un estado = editar un renglón.
+   La regla que asigna cada estado está en estRaw(). El orden es el de la leyenda. */
+const ESTADOS=[
+  {k:'ok',      t:'Correcto',                                   s:'Correcto',      d:'Coinciden el cartón y los m² (dentro de tolerancia)'},
+  {k:'cons',    t:'Diferencia de consumo',                      s:'Consumo',       d:'Mismo cartón; m² fuera de tolerancia'},
+  {k:'camb',    t:'Cambio de cartón',                           s:'Cartón',        d:'Se usó otro cartón; m² dentro de tolerancia'},
+  {k:'cambcons',t:'Cambio de cartón y diferencia de consumo',   s:'Cartón + m²',   d:'Ni el cartón ni los m² coinciden'},
+  {k:'extra',   t:'Caja Extra',                                 s:'Caja Extra',    d:'Además del programado se usó un cartón no programado (puede incluir diferencia de consumo)'},
+  {k:'sinop',   t:'Sin OP',                                     s:'Sin OP',        d:'Inclusión o Caja de Ingeniería: consumo sin OP ni esperado'},
+  {k:'pend',    t:'Incompleto',                                 s:'Incompleto',    d:'Falta capturar un cartón programado'}];
+const EST=Object.fromEntries(ESTADOS.map(x=>[x.k,x]));
+const chipE=(e,txt)=>`<span class="chip st st-${e.k}" title="${esc((EST[e.k]||{}).d||'')}">${esc(txt==null?e.t:txt)}</span>`;
+/* Estados (ROADMAP «Reglas de negocio»):
+   Caja Extra        = además del cartón programado se usó un ancho que el ERP no traía.
+   Cambio de cartón  = un ancho programado no se usó y en su lugar se usó otro.
+   Cualquiera puede llevar «y diferencia de consumo» si los m² salen de la tolerancia.
+   Las cajas NO generan estado (v4.4): la comparación es por m² de cada tipo de cartón; las cajas son dato informativo. */
+function estRaw(o){
+  if(o.kind!=='op'){const t=KINDS[o.kind]||KINDS.inc;return{cls:'na',k:'sinop',t,c:'Sin consumo esperado'}}
+  const P=o.per,U=P.filter(p=>!p.E&&p.R>0),X=P.filter(p=>p.E&&!p.R),L=a=>a.map(p=>p.a+' cm').join(', ');
+  if(X.length&&!U.length)return{cls:'pend',k:'pend',t:'Registro incompleto',c:'Falta capturar '+L(X)};
+  const ex=U.length&&!X.length,sw=U.length&&X.length,EP=P.filter(p=>p.E),EE=EP.reduce((s,p)=>s+p.E,0),RR=EP.reduce((s,p)=>s+p.R,0);
+  const m=ex?(EE&&Math.abs((RR-EE)/EE*100)>tolv):(o.E&&Math.abs((o.R-o.E)/o.E*100)>tolv);
+  const y=t=>m?t+' y diferencia de consumo':t;
+  // Caja Extra conserva su color aunque además haya diferencia de consumo (la causa principal es la caja extra).
+  if(ex)return{cls:'bad',k:'extra',t:y('Caja Extra'),c:'Cartón no programado: '+L(U)};
+  if(sw)return{cls:'bad',k:m?'cambcons':'camb',t:y('Cambio de cartón'),c:'Programado '+L(X)+' → usado '+L(U)};
+  if(m)return{cls:'bad',k:'cons',t:'Diferencia de consumo',c:'m² fuera de ±'+tolv+'%'};
+  return{cls:'ok',k:'ok',t:'Correcto',c:'—'};
+}
+// est() nunca debe romper el tablero: un registro dañado se clasifica como «ilegible».
+const est=o=>{try{return estRaw(o)}catch(x){return{cls:'err',k:'err',t:'Registro ilegible',c:String(x&&x.message||x)}}};
+const cartP=r=>r.per.filter(p=>p.E).map(p=>p.a+' cm').join(' + ')||'—',cartU=r=>r.per.filter(p=>p.R>0).map(p=>p.a+' cm').join(' + ')||'—';
+const widths=()=>[...new Set([...Object.values(cfg.cartones).map(Number),...Object.values(cat).flatMap(o=>o.rows.map(r=>r.ancho)),...(W&&W.lines?W.lines.map(l=>l.a).filter(Boolean):[])])].sort((a,b)=>a-b);
+function showCat(){const C=Object.values(cat).filter(o=>!excluida(o.op));$('#catinfo').textContent='· '+C.length+' OP con cartón';
+  $('#mlist').innerHTML=[...new Set(C.map(o=>o.modelo))].map(m=>`<option value="${esc(m)}">`).join('');
+}
+function showCfg(){
+  const c=Object.entries(cfg.cartones).sort((a,b)=>a[1]-b[1]||(a[0]<b[0]?-1:1));
+  $('#cartcfg').innerHTML='<table><thead><tr><th>Código</th><th>Ancho</th><th></th></tr></thead><tbody>'+c.map(([k,v])=>`<tr><td>${esc(k)}</td><td>${v} cm</td><td><button class="btn ghost sm" type="button" data-rmcart="${esc(k)}">Quitar</button></td></tr>`).join('')+'</tbody></table>';
+  $('#tipcfg').value=Object.entries(cfg.prefijos).map(([k,v])=>k+' = '+v).join('\n');
+  $('#exccfg').value=cfg.excluir.join(', ');
+}
+const cfgMsg=(m,bad)=>{$('#cfgmsg').textContent=m;$('#cfgmsg').style.color=bad?'var(--bad)':''};
+async function guardarCartones(c){try{await DB.saveSettings({cartones:c});cfg.cartones=c;showCfg();cfgMsg('Catálogo de cartones guardado. Vuelve a subir el Excel para aplicarlo a las OP.')}catch(x){dbErr(x,'No se pudo guardar el catálogo')}}
+$('#addcart').onclick=()=>{const k=codigo($('#ncod').value),a=num($('#nanc').value);
+  if(!/^\w+$/.test(k)||!(a>0)){cfgMsg('Escribe el código del componente y un ancho mayor que 0.',true);return}
+  $('#ncod').value=$('#nanc').value='';guardarCartones({...cfg.cartones,[k]:a})};
+$('#cartcfg').onclick=e=>{const k=e.target.dataset.rmcart;if(k==null)return;
+  if(Object.keys(cfg.cartones).length<2){cfgMsg('El catálogo debe tener al menos un cartón.',true);return}
+  if(!confirm('¿Quitar el código '+k+' del catálogo? Sus líneas dejarán de cargarse.'))return;
+  const c={...cfg.cartones};delete c[k];guardarCartones(c)};
+$('#savetip').onclick=async()=>{
+  const P={},bad=[];$('#tipcfg').value.split('\n').map(x=>x.trim()).filter(Boolean).forEach(l=>{const m=l.match(/^([A-Za-z]+)\s*=\s*(.+)$/);if(m)P[m[1].toUpperCase()]=m[2].trim();else bad.push(l)});
+  if(bad.length||!Object.keys(P).length){cfgMsg('Revisa el formato «PREFIJO = Nombre» en: '+(bad.join(' | ')||'(vacío)'),true);return}
+  const X=[...new Set($('#exccfg').value.split(',').map(x=>x.trim().toUpperCase()).filter(Boolean))];
+  try{await DB.saveSettings({prefijos:P,excluir:X});cfg.prefijos=P;cfg.excluir=X;showCfg();showCat();cfgMsg('Tipos de OP y exclusiones guardados.')}catch(x){dbErr(x,'No se pudo guardar la configuración')}};
+$('#tol').oninput=e=>{tolv=Math.max(0,num(e.target.value));DB.saveSettings({tol:tolv}).catch(x=>dbErr(x,'No se pudo guardar la tolerancia'))};
+
+// Excel
+/* Lee las filas del Excel «Consumo Extras» (hoja Data). Reglas (ROADMAP):
+   - Entra solo la línea cuyo NoComponente está EXACTAMENTE en cfg.cartones; el ancho sale del catálogo, no de la descripción.
+   - OP con prefijo excluido (OPP, OPM…) se descartan.
+   - Código desconocido cuya descripción parece «CARTON PARA CAJA … CM» → se reporta con el ancho sugerido (no se pierde en silencio).
+   - Renglones repetidos del mismo cartón en una OP (el reporte del ERP no trae número de línea):
+       · mismos m² esperados y solo cambian Item/Cantidad (consumos registrados) → es el MISMO renglón repetido por el reporte: cuenta una vez;
+       · cualquier otro caso → son piezas/cajas del mismo ancho: se SUMAN (el ERP da el total por tipo de cartón).
+   Devuelve {m: OP por número, info: conteos y avisos}. Función pura: no guarda nada. */
+const codigo=v=>String(v==null?'':v).trim().replace(/\.0+$/,'');
+const vacio=v=>v==null||String(v).trim()===''||String(v).trim().toUpperCase()==='NULL';
+const consumoERP=r=>vacio(r.Item)&&vacio(r.Cantidad)?'':codigo(r.Item)+'|'+String(r.Cantidad).trim();
+function leerConsumos(rows){
+  if(!rows.length||!('NoOP' in rows[0])||!('NoComponente' in rows[0]))throw new Error('Formato no reconocido: faltan las columnas NoOP y NoComponente.');
+  const m={},info={excl:new Set(),nuevos:{},contra:{},otros:new Set(),cero:new Set(),sum:new Set(),una:new Set(),lineas:0};
+  rows.forEach(r=>{
+    const op=String(r.NoOP||'').trim();if(!op)return;
+    const cod=codigo(r.NoComponente),nm=String(r.NombreComponente||'').toUpperCase(),mt=nm.match(/(\d+)\s*CM/);
+    const a=Number(cfg.cartones[cod]);
+    if(!a){if(/^CART[OÓ]N PARA CAJA/.test(nm)&&!excluida(op))(info.nuevos[cod]||(info.nuevos[cod]={cod,nombre:String(r.NombreComponente).trim(),ancho:mt?+mt[1]:0,n:0})).n++;return}
+    if(excluida(op)){info.excl.add(op);return}
+    const v=num(r.CompEsperados);if(v<=0){info.cero.add(op);return}
+    if(mt&&+mt[1]!==a)info.contra[cod]={cod,nombre:String(r.NombreComponente).trim(),ancho:a};
+    if(opDesconocida(op))info.otros.add(prefOp(op)||op);
+    info.lineas++;
+    const o=m[op]||(m[op]={op,modelo:String(r.Modelo),desc:String(r.Descripcion||'').trim(),cant:num(r.Cant)||1,estado:String(r.Estado||''),term:num(r.CantTerminada),pend:num(r.CantPendiente),fecha:isoDate(r.FechaVenc),rows:[]});
+    const x=o.rows.find(q=>q.ancho===a),ce=consumoERP(r);
+    if(!x){o.rows.push({ancho:a,val:v,cod,src:[{v,ce}],sum:0,una:0});return}
+    if(ce&&x.src.some(z=>z.v===v&&z.ce&&z.ce!==ce)){x.una++;info.una.add(op);return}   // mismo renglón repetido por el reporte
+    x.val+=v;x.sum++;x.src.push({v,ce});info.sum.add(op);                              // otra pieza/caja del mismo ancho
+  });
+  return{m,info};
+}
+let lastRows=null;
+async function cargarConsumos(rows){
+  const {m,info}=leerConsumos(rows),ops=Object.values(m),nv=Object.values(info.nuevos);
+  if(!ops.length&&!nv.length)throw new Error('No encontré líneas con códigos de cartón del catálogo.');
+  if(ops.length){cat=await DB.upsertOps(m,{overwrite:true});showCat()}
+  const ct=Object.values(info.contra),L10=a=>esc(a.slice(0,10).join(', '))+(a.length>10?'…':'');
+  let h=`<b>Listo:</b> ${ops.length} OP con cartón leídas (${info.lineas} líneas), ${Object.keys(cat).length} en catálogo.`;
+  if(info.excl.size)h+=`<br>Excluidas por tipo (${esc(cfg.excluir.join(', '))}): ${info.excl.size} OP con cartón.`;
+  if(info.sum.size)h+=`<br>Renglones del mismo cartón <b>sumados</b> (varias piezas o cajas del mismo ancho): ${info.sum.size} OP — ${L10([...info.sum])}.`;
+  if(info.una.size)h+=`<br>Renglones repetidos por el reporte, <b>contados una vez</b> (mismos m², solo cambia Item/Cantidad): ${info.una.size} OP — ${L10([...info.una])}.`;
+  const cz=[...info.cero].filter(o=>!m[o]);if(info.cero.size)h+=`<br>⚠ ${info.cero.size} OP con línea de cartón en 0 m² esperados (esa línea no se cargó)`+(cz.length?`; sin otro cartón, no quedan disponibles para captura: ${esc(cz.slice(0,10).join(', '))}${cz.length>10?'…':''}`:'')+'.';
+  if(info.otros.size)h+=`<br>⚠ Tipo de OP no reconocido, entra como «Otro» para revisión: <b>${esc([...info.otros].join(', '))}</b>. Si es un tipo válido, agrégalo en «Tipos de OP».`;
+  if(ct.length)h+=`<br>⚠ La descripción no coincide con el ancho del catálogo (manda el catálogo): `+ct.map(c=>`${esc(c.cod)} «${esc(c.nombre)}» = ${c.ancho} cm`).join('; ')+'.';
+  if(nv.length)h+=`<div class="banner pend" style="margin-top:8px">⚠ ${nv.reduce((s,x)=>s+x.n,0)} línea(s) parecen cartón para caja pero su código no está en el catálogo y <b>no se cargaron</b>:<br>`+
+    nv.map(x=>`${esc(x.cod)} «${esc(x.nombre)}» → ancho sugerido <b>${x.ancho||'?'} cm</b> (${x.n} línea(s))`).join('<br>')+
+    (nv.every(x=>x.ancho>0)?`<br><button class="btn sm" id="regnv" type="button" style="margin-top:6px">Registrar con el ancho sugerido y volver a leer</button>`:'<br>Regístralos en «Catálogo de cartones» y vuelve a subir el archivo.')+'</div>';
+  $('#filemsg').innerHTML=h;
+  const b=$('#regnv');if(b)b.onclick=async()=>{
+    const c={...cfg.cartones};nv.forEach(x=>c[x.cod]=x.ancho);
+    try{await DB.saveSettings({cartones:c});cfg.cartones=c;showCfg();await cargarConsumos(lastRows)}catch(x){dbErr(x,'No se pudo guardar el catálogo')}};
+  $('#work').classList.add('hide');W=null;
+}
+$('#file').onchange=async e=>{
+  const f=e.target.files[0];if(!f)return;
+  try{
+    const wb=XLSX.read(await f.arrayBuffer(),{cellDates:true});
+    lastRows=XLSX.utils.sheet_to_json(wb.Sheets['Data']||wb.Sheets[wb.SheetNames[0]],{defval:''});
+    await cargarConsumos(lastRows);
+  }catch(err){$('#filemsg').textContent='Error: '+err.message}
+  e.target.value='';
+};
+
+// Selección
+// OPERADOR = CAPTURAR: la pantalla de captura solo pide lo indispensable (qué registra, cartón, largo, 1 o 2 cartones, cajas, comentario).
+// Esperado, diferencias, estados y alertas viven en administración (Análisis, Modelos, Tablero).
+const KHINT={ing:'Caja de Ingeniería: escribe el modelo del mueble.',inc:'Inclusión: escribe el modelo del mueble (no tiene OP).'};
+$('#kind').onchange=()=>{const k=$('#kind').value;$('#srch').classList.toggle('hide',k!=='op');$('#manual').classList.toggle('hide',k==='op');$('#kindhint').textContent=KHINT[k]||'';$('#work').classList.add('hide');W=null};
+$('#q').oninput=()=>{
+  const q=$('#q').value.trim().toLowerCase();if(!q){$('#hits').innerHTML='';return}
+  const l=Object.values(cat).filter(o=>!excluida(o.op)&&(o.modelo+' '+o.op+' '+o.desc).toLowerCase().includes(q)).slice(0,8);
+  $('#hits').innerHTML=l.length?l.map(o=>`<button class="hit" data-k="${esc(o.op)}"><b>${esc(o.modelo)}</b> <span class="mut">${esc(o.op)} · ${o.cant||1} mueble(s)</span></button>`).join(''):'<p class="mut">Sin resultados. Revisa el modelo u OP.</p>';
+};
+$('#hits').onclick=e=>{const b=e.target.closest('.hit');if(b)start('op',b.dataset.k)};
+$('#mgo').onclick=()=>{const m=$('#mm').value.trim();if(!m){$('#savemsg').textContent='';alert('Escribe el modelo del mueble.');return}start($('#kind').value,m)};
+// Línea de captura: a = ancho, l = largo (cm), c = cartones por caja (0 = sin elegir), n = cajas.
+const nl=(a,n)=>({a:+a,l:'',c:0,n:n==null?'':n});
+function start(kind,key,saved){
+  const s=saved&&saved.snap&&saved.snap.lines.length?saved.snap:null;editId=saved?saved.id:null;
+  if(kind==='op'){const o=cat[key];
+    W={kind,op:o.op,modelo:o.modelo,desc:o.desc,cant:o.cant||1,estado:o.estado,fecha:o.fecha,rows:o.rows.map(r=>({ancho:r.ancho,val:r.val}))};
+  }else W={kind,op:'',modelo:key,desc:'',cant:0,rows:[],fecha:''};
+  // cajas prellenadas con Cant (el operador solo cambia si usó otra cantidad)
+  W.lines=s?JSON.parse(JSON.stringify(s.lines)):(kind==='op'?W.rows.map(r=>nl(r.ancho,W.cant)):[nl(widths()[0]||140,1)]);
+  W.ver=saved?saved.version:undefined;   // versión con la que se empezó a corregir: si otro la cambia mientras tanto, no se pisa
+  $('#com').value=W.com=s?s.com:'';
+  $('#hits').innerHTML='';$('#q').value='';$('#savemsg').textContent='';
+  $('#work').classList.remove('hide');render();
+}
+
+// Formulario: una tarjeta por cartón
+const okC=c=>+c===1||+c===2;
+function render(){
+  $('#wtitle').textContent=W.modelo+(W.op?' · '+W.op:'');
+  $('#wchips').innerHTML=(editId!=null?'<span class="chip pend">Corrigiendo reporte guardado</span> ':'')+(W.kind!=='op'?`<span class="chip na">${esc(KINDS[W.kind])}</span>`:'');
+  $('#wmeta').textContent=W.kind==='op'?`${W.cant} mueble(s)`:'';
+  const A=(i,v)=>`<select data-b="${i}" data-f="a">${widths().map(w=>`<option value="${w}"${v==w?' selected':''}>${w} cm</option>`).join('')}</select>`;
+  $('#form').innerHTML=W.lines.map((L,i)=>`<div class="card"><div class="head"><b>Cartón ${i+1}</b>${W.lines.length>1?`<button class="btn ghost sm" data-rm="${i}" type="button">Quitar</button>`:''}</div>
+  <div class="row" style="margin-top:6px"><label>Cartón${A(i,L.a)}</label>
+  <label>Largo (cm)<input inputmode="decimal" data-b="${i}" data-f="l" value="${esc(L.l)}"></label>
+  <label>Cartones por caja<select data-b="${i}" data-f="c"${okC(L.c)?'':' style="border-color:var(--bad)"'}><option value="0"${okC(L.c)?'':' selected'}>Elige…</option><option value="1"${L.c==1?' selected':''}>1 cartón</option><option value="2"${L.c==2?' selected':''}>2 cartones (tapa y fondo)</option></select></label>
+  <label>Cajas<input inputmode="numeric" data-b="${i}" data-f="n" value="${esc(L.n)}"></label></div></div>`).join('');
+}
+$('#form').addEventListener('input',e=>{const d=e.target.dataset;if(d.f){W.lines[d.b][d.f]=(d.f==='a'||d.f==='c')?+e.target.value:e.target.value;if(d.f==='c')e.target.style.borderColor=e.target.value==='0'?'var(--bad)':''}});
+$('#form').addEventListener('click',e=>{const a=e.target.dataset.rm;if(a!==undefined){W.lines.splice(a,1);render()}});
+$('#addx').onclick=()=>{if(W){W.lines.push(nl(W.rows[0]?W.rows[0].ancho:(widths()[0]||140),W.kind==='op'?W.cant:1));render()}};
+$('#com').oninput=e=>{if(W)W.com=e.target.value};
+
+// Cálculo (todo en m²). m² reales = ancho × largo × cartones por caja × cajas, sumado por tipo de cartón.
+// Cajas por ancho = suma de las cajas capturadas en ese ancho (dato informativo; no genera estado).
+function calc(){
+  const ex={},re={},nlA={};
+  W.rows.forEach(r=>ex[r.ancho]=r);
+  W.lines.forEach(L=>{const l=num(L.l),n=num(L.n),c=+L.c;if(l<=0||n<=0||!okC(c))return;
+    nlA[L.a]=(nlA[L.a]||0)+n;re[L.a]=(re[L.a]||0)+L.a/100*l/100*c*n});
+  const A=[...new Set([...Object.keys(ex),...Object.keys(re)].map(Number))].sort((a,b)=>a-b);
+  const fx={q:0,t:0,d:0,m:0};
+  const per=A.map(a=>{
+    const x=ex[a],E=x?x.val:0,R=re[a]||0,cr=nlA[a]||0;let q=0,t=0,m=0;
+    if(E&&!R)t=-E;else if(!E)t=R;else{q=E*(cr/W.cant-1);m=R-E-q}
+    fx.q+=q;fx.t+=t;fx.m+=m;
+    const diff=R-E,st=W.kind!=='op'?'na':(E&&!R)?'pend':!E?'bad':Math.abs(diff/E*100)<=tolv?'ok':'bad';
+    return{a,E,R,diff,cr,ce:x?W.cant:0,st};
+  });
+  const S=k=>per.reduce((s,p)=>s+p[k],0),E=S('E'),R=S('R'),diff=R-E;
+  const mismo=W.kind==='op'?per.every(p=>(p.E>0)===(p.R>0)):null;
+  const ce=S('ce'),cr=S('cr'),e=est({kind:W.kind,per,E,R,mismo});
+  return{per,fx,E,R,diff,abs:per.reduce((s,p)=>s+Math.abs(p.diff),0),dm:W.cant?diff/W.cant:0,ce,cr,mismo,st:e.cls,est:e.t};
+}
+function lineText(p){
+  const cj=p.ce?` · cajas ${p.cr} (Cant ${p.ce})`:` · ${p.cr} caja(s)`;
+  if(p.st==='na')return`Cartón ${p.a} cm: ${fmt(p.R)} m² reales${cj}`;
+  if(p.st==='pend')return`Cartón ${p.a} cm: sin capturar (esperado ${fmt(p.E)} m²)`;
+  if(!p.E)return`Cartón ${p.a} cm: ${fmt(p.R)} m² usados, no estaba esperado en el modelo${cj}`;
+  return`Cartón ${p.a} cm: ${fmt(p.R)} m² reales vs ${fmt(p.E)} esperados (${sgm(p.R-p.E)} m²)${cj}`;
+}
+const fxText=f=>`Por qué: cantidad de cajas ${sgm(f.q)} · tipo de cartón ${sgm(f.t)} · medidas ${sgm(f.m)} m²`+(f.d?` · 2.º cartón ${sgm(f.d)}`:'');
+// Real ≈ doble o ≈ mitad del esperado en un cartón programado → se le pide al operador que CONFIRME 1 o 2 cartones.
+// Confirmado, se guarda tal cual (sin alerta); administración ve la nota «confirmado por el operador».
+function dudas12(per){const out=[];per.filter(p=>p.E&&p.R).forEach(p=>{const k=p.R/p.E;if((k>=1.8&&k<=2.2)||(k>=0.45&&k<=0.55))out.push(p.a)});return out}
+const sinElegir=()=>W.lines.map((L,i)=>[L,i]).filter(([L])=>num(L.l)>0&&!okC(L.c)).map(([,i])=>i+1);
+const update=()=>{};   // compatibilidad: la captura ya no muestra cálculos en vivo
+
+// Guardar
+$('#save').onclick=async()=>{
+  if(!W||saving)return;
+  if(operadores.length&&!operadores.includes(operador)&&editId==null){$('#savemsg').textContent='Elige tu nombre en «¿Quién captura?» antes de guardar.';return}
+  const se=sinElegir();if(se.length){$('#savemsg').textContent='Elige 1 o 2 cartones por caja en el cartón '+se.join(', ')+'.';return}
+  const c=calc();
+  if(!c.R){$('#savemsg').textContent='Captura al menos un cartón con largo y cajas antes de guardar.';return}
+  const du=W.kind==='op'?dudas12(c.per):[];
+  if(du.length){const t=du.map(a=>{const ls=W.lines.filter(L=>L.a===a&&num(L.l)>0);return`Cartón ${a} cm: `+ls.map(L=>`${L.n} caja(s) de ${L.l} cm con ${L.c==2?'2 cartones (tapa y fondo)':'1 cartón'}`).join(' + ')}).join('\n');
+    if(!confirm('Revisa por favor:\n'+t+'\n\n¿Es correcto?'))return}
+  saving=true;$('#save').disabled=true;$('#savemsg').textContent='Guardando…';
+  try{
+    const fresh=await DB.listReports(),old=editId!=null?fresh.find(r=>r.id===editId):null,ts=old?old.ts:Date.now();
+    // semana = día de captura (la fecha de vencimiento de la OP se guarda aparte, para filtrar)
+    const rep={id:old?old.id:null,ts,kind:W.kind,tipoOp:tipoReg(W),op:W.op||'—',modelo:W.modelo,
+      tipoModelo:tipoModelo(W.modelo,W.desc),estadoERP:W.estado||'',semana:isoWeek(new Date(ts)),venc:W.kind==='op'?(W.fecha||''):'',cant:W.cant,
+      ce:c.ce,cr:c.cr,E:c.E,R:c.R,diff:c.diff,dm:c.dm,abs:c.abs,mismo:c.mismo,fx:c.fx,st:c.st,est:c.est,com:(W.com||'').trim(),
+      conf12:du.length?du:(old&&old.conf12)||null,rev:old?!!old.rev:false,
+      operador:old?(old.operador||''):(operador||''),version:old?W.ver:undefined,
+      per:c.per.map(p=>({a:p.a,E:p.E,R:p.R,ce:p.ce,cr:p.cr,st:p.st})),
+      snap:{rows:[],lines:W.lines,com:W.com||''}};
+    await DB.saveReport(rep);
+    await reload();stat('');editId=null;
+    $('#savemsg').innerHTML=`<b style="color:var(--ok)">✓ Guardado:</b> ${esc(rep.modelo)}${rep.op!=='—'?' · '+esc(rep.op):''}`;
+    $('#work').classList.add('hide');W=null;misHoy();
+  }catch(e){
+    $('#savemsg').textContent=e&&(e.code==='conflict')?'⚠ '+e.message:e&&e.code==='auth'?'⚠ La sesión expiró: usa «Salir» y vuelve a iniciar sesión. La captura sigue en pantalla.':e&&e.code==='verify'?'⚠ El reporte no quedó en el almacenamiento del navegador. No cierres la página y avisa al administrador.':'⚠ NO se guardó el reporte. Inténtalo de nuevo; si sigue fallando, avisa al administrador.';
+    dbErr(e);
+  }finally{saving=false;$('#save').disabled=false}
+};
+$('#clear').onclick=()=>{if(W){const k=W.kind==='op'?W.op:W.modelo;editId=null;start(W.kind,k)}};
+// «Mis capturas de hoy»: solo para confirmar que se guardó (sin estados ni diferencias).
+function misHoy(){
+  const hoy=ymd(new Date()),L=reports.filter(r=>ymd(new Date(r.ts))===hoy&&(!operador||!operadores.length||r.operador===operador)).sort((a,b)=>b.ts-a.ts);
+  $('#hoy').innerHTML=`<h2>Mis capturas de hoy <span class="mut">(${L.length})</span></h2>`+(L.length?L.map(r=>`<div class="line"><span class="mut">${new Date(r.ts).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'})}</span> · <b>${esc(r.modelo)}</b> · ${r.kind==='op'?esc(r.op):esc(KINDS[r.kind])} · ${r.per.filter(p=>p.R>0).map(p=>`${p.a} cm × ${p.cr} caja(s)`).join(', ')}</div>`).join(''):'<p class="mut">Todavía no hay capturas hoy.</p>');
+}
+
+// Tablero, análisis y exportación  (ADMINISTRACIÓN = INFORMACIÓN ORDENADA)
+const isA=r=>{const c=est(r).cls;return r.kind==='op'&&c!=='pend'&&c!=='err'};
+const grp=(L,fn)=>{const m={};L.forEach(r=>fn(r).forEach(([k,e,rl,d])=>{const o=m[k]||(m[k]={k,E:0,R:0,P:0,N:0,n:0});o.E+=e;o.R+=rl;o.P+=Math.max(d,0);o.N+=Math.min(d,0);o.n++}));return Object.values(m).sort((a,b)=>(b.P-b.N)-(a.P-a.N))};
+// Coincidencia de cartón de una OP: mismo cartón / cambio de cartón / caja extra
+const COIN={mismo:'Mismo cartón',cambio:'Cambio de cartón',extra:'Caja Extra'};
+const coin=r=>{const k=est(r).k;return k==='extra'?'extra':(k==='camb'||k==='cambcons')?'cambio':'mismo'};
+function summ(L){
+  const B=L.filter(isA),S=k=>B.reduce((s,r)=>s+r[k],0),G=f=>grp(B,f);
+  const sn=L.filter(r=>r.kind!=='op'),SR=a=>a.reduce((t,r)=>t+r.R,0);
+  // cruce semana × coincidencia
+  const cx={};B.forEach(r=>{const w=cx[r.semana]||(cx[r.semana]={k:r.semana,n:0,ok:0,mismo:{n:0,E:0,R:0,A:0},cambio:{n:0,E:0,R:0,A:0},extra:{n:0,E:0,R:0,A:0},E:0,R:0,A:0});
+    const c=w[coin(r)];c.n++;c.E+=r.E;c.R+=r.R;c.A+=Math.abs(r.diff);w.n++;w.E+=r.E;w.R+=r.R;w.A+=Math.abs(r.diff);if(est(r).cls==='ok')w.ok++});
+  const tot={k:'Total',n:0,ok:0,E:0,R:0,A:0};['mismo','cambio','extra'].forEach(c=>tot[c]={n:0,E:0,R:0,A:0});
+  Object.values(cx).forEach(w=>{['n','ok','E','R','A'].forEach(k=>tot[k]+=w[k]);['mismo','cambio','extra'].forEach(c=>['n','E','R','A'].forEach(k=>tot[c][k]+=w[c][k]))});
+  return{B,inc:L.filter(r=>est(r).cls==='pend'),sn,incl:sn.filter(r=>r.kind==='inc'),ingr:sn.filter(r=>r.kind==='ing'),E:S('E'),R:S('R'),AC:S('abs'),
+    ok:B.filter(r=>est(r).cls==='ok').length,
+    Rtot:SR(L.filter(r=>r.kind!=='op'||isA(r))),Rinc:SR(sn.filter(r=>r.kind==='inc')),Ring:SR(sn.filter(r=>r.kind==='ing')),
+    reg:grp(L.filter(r=>r.kind!=='op'||isA(r)),r=>[[KINDS[r.kind],r.kind==='op'?r.E:0,r.R,r.kind==='op'?r.diff:0]]),
+    modInc:grp(sn.filter(r=>r.kind==='inc'),r=>[[r.modelo,0,r.R,0]]).sort((a,b)=>b.R-a.R),
+    P:B.reduce((s,r)=>s+Math.max(r.diff,0),0),N:B.reduce((s,r)=>s+Math.min(r.diff,0),0),
+    modelo:G(r=>[[r.modelo,r.E,r.R,r.diff]]),carton:G(r=>r.per.map(p=>[p.a+' cm',p.E,p.R,p.R-p.E])),clase:G(r=>[[clase(r.modelo),r.E,r.R,r.diff]]),
+    tipoOp:G(r=>[[tipoReg(r),r.E,r.R,r.diff]]),semana:G(r=>[[r.semana,r.E,r.R,r.diff]]).sort((a,b)=>a.k<b.k?-1:1),
+    cruce:Object.values(cx).sort((a,b)=>a.k<b.k?-1:1),cruceTot:tot};
+}
+const vencW=r=>r.venc?isoWeek(parseISO(r.venc)):'';
+const opts=(sel,vals,todo)=>{const s=$(sel),v=s.value;s.innerHTML=`<option value="">${todo}</option>`+vals.map(x=>`<option${x===v?' selected':''}>${esc(x)}</option>`).join('')};
+const vis=()=>reports.filter(r=>!(r.kind==='op'&&excluida(r.op)));
+// OP doble consumo: una OP con más de un reporte. Se marcan los reportes posteriores al primero; quedan pendientes hasta «Revisada: válida».
+let DBL=new Set();
+function idxDobles(){DBL=new Set();const by={};vis().filter(r=>r.kind==='op').sort((a,b)=>a.ts-b.ts||String(a.id).localeCompare(String(b.id))).forEach(r=>{if(by[r.op])DBL.add(r.id);else by[r.op]=1})}
+const esDoble=r=>DBL.has(r.id),doblePend=r=>esDoble(r)&&!r.rev;
+function weeks(){const R=vis();
+  opts('#fw',[...new Set(R.map(r=>r.semana))].sort().reverse(),'Todas');
+  opts('#fv',[...new Set(R.map(vencW).filter(Boolean))].sort().reverse(),'Todas');
+  opts('#fo',[...new Set(R.filter(r=>r.kind==='op').map(tipoReg))].sort(),'Todos')}
+// Filtro de Estado: «con diferencia (todas)», cada estado de ESTADOS y la bandera de OP doble consumo.
+const SF={bad:e=>e.cls==='bad',...Object.fromEntries(ESTADOS.map(x=>[x.k,e=>e.k===x.k]))};
+$('#fs').innerHTML='<option value="">Todos</option><option value="bad">Con diferencia (todas)</option>'+ESTADOS.map(x=>`<option value="${x.k}">${esc(x.t)}</option>`).join('')+'<option value="doble">OP doble consumo (por revisar)</option>';
+const FSEL=['#ff','#ft','#fw','#fv','#fk','#fo','#fc','#fs','#fq'];
+const fAct=()=>FSEL.filter(x=>$(x).value.trim()).length;
+const cnt=L=>{const a=fAct();return`${L.length} de ${vis().length} guardados`+(a?` <b style="color:var(--warn)">⚠ ${a} filtro${a>1?'s':''} activo${a>1?'s':''}</b>`:'')+(DB.repaired?` · <span style="color:var(--warn)">${DB.repaired} reparado${DB.repaired>1?'s':''} al leer</span>`:'')};
+function filt(){
+  idxDobles();
+  const f=$('#ff').value,t=$('#ft').value,w=$('#fw').value,v=$('#fv').value,k=$('#fk').value,o=$('#fo').value,c=$('#fc').value,fs=$('#fs').value,sp=SF[fs],q=$('#fq').value.trim().toLowerCase();
+  const dOps=fs==='doble'?new Set(vis().filter(doblePend).map(r=>r.op)):null;   // muestra TODOS los reportes de la OP para comparar
+  return vis().filter(r=>{const d=ymd(new Date(r.ts));return(!f||d>=f)&&(!t||d<=t)&&(!w||r.semana===w)&&(!v||vencW(r)===v)&&(!k||r.kind===k)&&(!o||(r.kind==='op'&&tipoReg(r)===o))&&(!c||clase(r.modelo)===c)&&(!dOps||(r.kind==='op'&&dOps.has(r.op)))&&(!sp||sp(est(r)))&&(!q||[r.modelo,r.op,tipoReg(r),modeloPrincipal(r.modelo)].join(' ').toLowerCase().includes(q))}).sort((a,b)=>b.ts-a.ts);
+}
+function detail(r){
+  return r.per.map(p=>`<div class="line">${esc(lineText(p))}</div>`).join('')+(r.kind==='op'?`<div class="line mut">${fxText(r.fx)}</div>`:'')+
+  `<div class="line mut">${esc(tipoReg(r))} · ${clase(r.modelo)} · modelo principal ${esc(modeloPrincipal(r.modelo))} · registro ${r.semana}${r.venc?' · vence '+esc(r.venc):''}</div>`+
+  (r.conf12?`<div class="line mut">1/2 cartones confirmado por el operador (${esc([].concat(r.conf12).join(', '))} cm).</div>`:'')+
+  (r.com?`<div class="line"><b>Comentario:</b> ${esc(r.com)}</div>`:'');
+}
+// Cajas (dato informativo): las de los cartones programados contra Cant; las de cartón no programado aparte como «extra».
+function cajasTxt(r){const P=r.per||[],cE=P.filter(p=>p.E).reduce((s,p)=>s+p.cr,0),cX=P.filter(p=>!p.E&&p.R>0).reduce((s,p)=>s+p.cr,0);
+  if(cX&&coin(r)==='cambio')return r.ce+' → '+(cE+cX)+' <span class="mut">(cambio de cartón)</span>';
+  return r.ce+' → '+cE+(cX?` <b>+ ${cX} extra</b>`:'')}
+let cur=1,lim=100;const refresh=()=>cur===3?analysis():cur===4?modelosView():board();
+// Fila del Tablero (8 · detalle): estado junto al modelo, m² en columnas separadas, borde y cartón distinto con el color del estado.
+const fueraTol=r=>r.E&&Math.abs((r.R-r.E)/r.E*100)>tolv;
+const cartUc=(r,e)=>r.per.filter(p=>p.R>0).map(p=>p.E?p.a+' cm':`<span class="c-${e.k}">${p.a} cm</span>`).join(' + ')||'—';
+function row(r){const e=est(r),op=r.kind==='op',was=r.est&&r.est!==e.t?`<br><span class="mut">Al guardar: ${esc(r.est)}</span>`:'';
+  const dbl=esDoble(r)?(r.rev?'<br><span class="chip na">OP doble consumo · revisada</span>':`<br><span class="chip bad">OP doble consumo · requiere revisión</span> <button class="btn ghost sm adm w" data-rev="${r.id}" type="button">Revisada: válida</button>`):'';
+  return`<tr class="r-${e.k}"><td>${new Date(r.ts).toLocaleString('es-MX',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}<br><span class="mut">Sem. ${esc(r.semana)}</span>${r.operador?`<br><span class="mut">${esc(r.operador)}</span>`:''}</td>
+  <td><b>${esc(r.modelo)}</b><br><span class="mut">${esc(r.op)} · ${esc(tipoReg(r))} · ${clase(r.modelo)}</span>${op&&opDesconocida(r.op)?' <span class="chip pend">revisar tipo de OP</span>':''}</td>
+  <td>${chipE(e)}${e.c&&e.c!=='—'?`<br><span class="mut">${esc(e.c)}</span>`:''}${was}${dbl}</td>
+  <td>${op?cartP(r)+' → ':esc(KINDS[r.kind])+' → '}<b>${cartUc(r,e)}</b></td>
+  <td class="n">${op?fmt(r.E):'—'}</td><td class="n">${fmt(r.R)}</td><td class="n">${op?(fueraTol(r)?'<b>'+sgm(r.diff)+'</b>':sgm(r.diff)):'—'}</td>
+  <td>${op?cajasTxt(r):r.cr}</td><td class="det">${detail(r)}</td>
+  <td class="adm"><span class="w"><button class="btn ghost sm" data-ed="${r.id}">Corregir</button> <button class="btn ghost sm" data-del="${r.id}">Borrar</button></span></td></tr>`}
+// Leyenda: punto de color + nombre corto + cuántos hay con los filtros actuales. Clic = filtrar por ese estado (otro clic lo quita).
+function leyenda(L){const n={};L.forEach(r=>{const k=est(r).k;n[k]=(n[k]||0)+1});const f=$('#fs').value;
+  $('#leg').innerHTML=ESTADOS.map(x=>`<button type="button" data-st="${x.k}" title="${esc(x.t+': '+x.d)}"${f===x.k?' class="on"':''}><i class="c-${x.k}" style="${x.k==='pend'?'border:1.5px solid currentColor':'background:currentColor'}"></i>${esc(x.s)} <b>${n[x.k]||0}</b></button>`).join('')}
+$('#leg').onclick=e=>{const b=e.target.closest('[data-st]');if(!b)return;const k=b.dataset.st;$('#fs').value=$('#fs').value===k?'':k;lim=100;board()};
+function board(){
+  weeks();const L=filt();$('#more').classList.toggle('hide',L.length<=lim);$('#more').textContent='Mostrar más ('+Math.max(0,L.length-lim)+' restantes)';$('#dtable').classList.toggle('nodet',!$('#ddet').checked);
+  const n=x=>L.filter(r=>est(r).cls===x).length,nd=L.filter(doblePend).length;
+  // los conteos por estado están en la leyenda; aquí solo el total, filtros y lo que requiere atención
+  leyenda(L);
+  $('#dsum').innerHTML=`${cnt(L)}`+(nd?` · <b style="color:var(--bad)">${nd} OP doble consumo por revisar</b>`:'')+(n('err')?` · <b style="color:var(--bad)">${n('err')} ilegibles</b>`:'')+(L.length>lim?` · mostrando los primeros ${lim}`:'');
+  $('#dbody').innerHTML=L.length?L.slice(0,lim).map(r=>{try{return row(r)}catch(x){return`<tr class="r-err"><td colspan="9" style="color:var(--bad)">⚠ Registro ilegible (id ${esc(r.id)}): ${esc(x.message)}</td><td class="adm"><button class="btn ghost sm w" data-del="${r.id}">Borrar</button></td></tr>`}}).join(''):`<tr><td colspan="10" class="mut">${reports.length&&fAct()?'Hay '+reports.length+' reporte(s) guardado(s), pero los filtros activos los ocultan. Usa «Limpiar filtros».':'No hay registros guardados.'}</td></tr>`;
+}
+const hbars=a=>{const mx=Math.max(0.001,...a.map(x=>Math.max(x.P,-x.N)));return a.map(x=>`<div class="hb"><span title="${esc(x.k)}">${esc(x.k)}</span><div class="tr"><div class="l"><i class="nb" style="width:${-x.N/mx*100}%"></i></div><div class="r"><i class="pb" style="width:${x.P/mx*100}%"></i></div></div><span><b>${sgm(x.R-x.E)} m²</b> · ${pct(x.R,x.E)}<br><span class="mut">abs ${fmt(x.P-x.N)} · ${x.n} reg.</span></span></div>`).join('')||'<p class="mut">Sin datos.</p>'};
+const gbars=a=>{const mx=Math.max(0.001,...a.map(x=>Math.max(x.E,x.R)));return'<div class="gb">'+a.map(x=>`<div><div class="pr"><i class="e" style="height:${x.E/mx*100}%"></i><i class="re" style="height:${x.R/mx*100}%"></i></div>${esc(x.k)}<br>${fmt(x.E)} / ${fmt(x.R)}<br><span class="mut">${pct(x.R,x.E)}</span></div>`).join('')+'</div>'};
+const K=(t,v,c,sub)=>`<div class="kpi"><span class="mut">${t}</span><b class="${c||''}">${v}</b>${sub?`<span class="mut">${sub}</span>`:''}</div>`;
+const SEC=(n,t,body,id)=>`<section class="card sec"${id?` id="${id}"`:''}><h2><span class="sn">${n}</span> ${t}</h2>${body}</section>`;
+// Alertas importantes (sección 3): cada una lleva directo a donde se revisa.
+function alertas(L,s,M){
+  const A=[],nd=L.filter(doblePend),ops=new Set(nd.map(r=>r.op));
+  if(nd.length)A.push(['st-cambcons',`<b>${ops.size} OP con doble consumo</b> por revisar (${nd.length} captura(s) adicional(es)).`,'2|doble']);
+  if(M.fuera)A.push(['st-camb',`<b>${M.fuera} variante(s) fuera del patrón</b> en ${M.revisar} modelo(s) principal(es).`,'4|']);
+  const nk=k=>s.B.filter(r=>est(r).k===k).length,cc=nk('cambcons'),cb=nk('camb'),ex=nk('extra');
+  if(cc)A.push(['st-cambcons',`<b>${cc} OP con cambio de cartón y diferencia de consumo.</b>`,'2|cambcons']);
+  if(ex)A.push(['st-extra',`<b>${ex} OP con Caja Extra.</b>`,'2|extra']);
+  if(cb)A.push(['st-camb',`<b>${cb} OP con cambio de cartón</b> (m² dentro de tolerancia).`,'2|camb']);
+  if(s.inc.length)A.push(['st-pend',`<b>${s.inc.length} registro(s) incompleto(s):</b> falta capturar un cartón programado.`,'2|pend']);
+  const ot=L.filter(r=>r.kind==='op'&&opDesconocida(r.op)).length;if(ot)A.push(['st-pend',`<b>${ot} registro(s) con tipo de OP no reconocido.</b>`,'2|q:otro (']);
+  const cf=L.filter(r=>r.conf12).length;if(cf)A.push(['st-sinop',`${cf} captura(s) donde el operador confirmó 1 o 2 cartones con un resultado cercano al doble o a la mitad.`,'']);
+  return A;
+}
+// ==== Resumen ejecutivo ====
+// Viñetas ✓ (bien) / ⚠ (atención). Cada regla es independiente: agregar o quitar una conclusión = una línea aquí.
+const dmy=t=>{const d=new Date(t);return p2(d.getDate())+'/'+p2(d.getMonth()+1)+'/'+d.getFullYear()};
+function periodoTxt(L){if(!L.length)return'';const t=L.map(r=>r.ts),a=dmy(Math.min(...t)),b=dmy(Math.max(...t));return a===b?`El ${a}`:`Del ${a} al ${b}`}
+function resumenEjecutivo(L,s,M,A,net,abs){
+  const ok=t=>['ok',t],at=t=>['at',t],I=[],n=s.B.length,sinop=s.sn.length;
+  const pl=(x,u,v)=>x===1?u:v;
+  I.push(['in',`${periodoTxt(L)} se registraron <b>${n} OP</b>`+(sinop?` y <b>${sinop}</b> ${pl(sinop,'consumo','consumos')} sin OP (inclusiones o ingeniería)`:'')+'.']);
+  if(!n){I.push(['in','No hay OP completas para comparar contra lo esperado.']);return lista(I)}
+  // situación general: tolerancia de consumo por OP
+  const fT=s.B.filter(fueraTol).length;
+  I.push(fT?at(`<b>${fT} de ${n} OP</b> ${pl(fT,'quedó','quedaron')} fuera de la tolerancia de consumo (±${tolv} %).`):ok(n===1?'La OP quedó dentro de la tolerancia de consumo.':'Todas las OP quedaron dentro de la tolerancia de consumo.'));
+  // cartón: cambios y cajas extra
+  const cb=s.B.filter(r=>coin(r)==='cambio').length,ex=s.B.filter(r=>coin(r)==='extra').length;
+  I.push(cb||ex?at([cb?`<b>${cb}</b> ${pl(cb,'cambio','cambios')} de cartón`:'',ex?`<b>${ex}</b> ${pl(ex,'OP','OP')} con Caja Extra`:''].filter(Boolean).join(' y ')+'.'):ok('No se detectaron cambios de cartón ni cajas extra.'));
+  // consumo total y compensación
+  const v=vp(s.R,s.E),ap=s.E?abs/s.E*100:0;
+  if(v!=null&&Math.abs(v)>tolv)I.push(at(`El consumo real está <b>${Math.abs(v).toFixed(1)} % ${v>0?'por encima':'por debajo'}</b> del esperado.`));
+  else if(ap>tolv)I.push(at(`El total parece alineado, pero <b>las diferencias se compensan entre OP</b>: hay ${fmt(abs)} m² de diferencia absoluta (${ap.toFixed(1)} % del esperado).`));
+  else I.push(ok('El consumo real se mantuvo alineado con el esperado.'));
+  // alertas pendientes (las informativas no cuentan)
+  const pend=A.filter(a=>a[2]).length;
+  I.push(pend?at(`Hay <b>${pend} ${pl(pend,'alerta pendiente','alertas pendientes')}</b> de revisión (sección 3).`):ok('Sin alertas pendientes.'));
+  // modelos que requieren atención (pestaña Modelos)
+  const mr=M.lista.filter(m=>m.rev);
+  if(mr.length)I.push(at(`${pl(mr.length,'Modelo','Modelos')} que ${pl(mr.length,'requiere','requieren')} atención: `+mr.slice(0,3).map(m=>`<b>${esc(m.k)}</b> (${m.nf?`${m.nf} variante${m.nf>1?'s':''} fuera del patrón`:`${pct(m.R,m.E)} vs esperado`})`).join(', ')+(mr.length>3?` y ${mr.length-3} más`:'')+'.'));
+  // cartones que requieren atención: consumo fuera de tolerancia EN el cartón programado (sin contar cambios de cartón,
+  // que ya se reportan arriba y distorsionarían el % de ambos anchos)
+  const cr=grp(s.B.filter(r=>coin(r)!=='cambio'),r=>r.per.filter(p=>p.E&&p.R).map(p=>[p.a+' cm',p.E,p.R,p.R-p.E])).filter(c=>c.E&&Math.abs((c.R-c.E)/c.E*100)>tolv);
+  if(cr.length)I.push(at(`${pl(cr.length,'Cartón','Cartones')} que ${pl(cr.length,'requiere','requieren')} atención: `+cr.slice(0,3).map(c=>`<b>${esc(c.k)}</b> (${pct(c.R,c.E)})`).join(', ')+'.'));
+  return lista(I);
+}
+const lista=I=>'<ul class="rx">'+I.map(([k,t])=>`<li class="rx-${k}">${t}</li>`).join('')+'</ul>';
+function analysis(){
+  weeks();const L=filt(),s=summ(L),M=modelosCalc(L),net=s.P+s.N,abs=s.P-s.N,comp=abs?(abs-Math.abs(net))/abs*100:0;
+  $('#dsum').innerHTML=`${cnt(L)}: ${s.B.length} OP analizadas · ${s.inc.length} incompletos · ${s.incl.length} inclusiones · ${s.ingr.length} de ingeniería`;
+  if(!s.B.length&&!s.sn.length){$('#ana').innerHTML='<div class="card mut">No hay registros con estos filtros para analizar.</div>';return}
+  const lg1='<p class="mut"><i class="sw e"></i> Esperado &nbsp;<i class="sw re"></i> Real</p>',lg2='<p class="mut"><i class="sw nb"></i> Consumió de menos &nbsp;<i class="sw pb"></i> Consumió de más</p>';
+  const A=alertas(L,s,M),okp=s.B.length?s.ok/s.B.length*100:0;
+  // 1 · Resumen ejecutivo: conclusión automática (no repite los indicadores); solo situación general, alertas,
+  //     modelos y cartones que requieren atención y desviaciones relevantes. Ver resumenEjecutivo().
+  const r1=resumenEjecutivo(L,s,M,A,net,abs);
+  // 2 · Indicadores
+  const r2=`<div class="kpis">${K('Consumo esperado',fmt(s.E)+' m²')}${K('Consumo real',fmt(s.R)+' m²')}${K('Diferencia neta',sgm(net)+' m²','',pct(s.R,s.E))}${K('Diferencia absoluta',fmt(abs)+' m²')}${K('OP correctas',fmt(okp)+' %','',`${s.ok} de ${s.B.length}`)}</div>
+    <h3>¿Se compensan los consumos de más y de menos?</h3>
+    <div class="kpis">${K('De más',sgm(s.P)+' m²','pos')}${K('De menos',sgm(s.N)+' m²','neg')}${K('% compensado',fmt(comp)+' %')}${K('Absoluta por cartón',fmt(s.AC)+' m²')}</div>
+    <p class="mut">Neta cercana a 0 con absoluta alta = unas OP compensan a otras; no es buen desempeño. «Absoluta por cartón» detecta además compensación dentro de una misma OP.</p>
+    <h3>Consumo sin OP</h3>
+    <div class="kpis">${K('Inclusiones',fmt(s.Rinc)+' m²','',s.incl.length+' reg.')}${K('Caja de Ingeniería',fmt(s.Ring)+' m²','',s.ingr.length+' reg.')}${K('Consumo real total',fmt(s.Rtot)+' m²','','OP completas + sin OP')}</div>
+    <p class="mut">Inclusiones e Ingeniería no tienen esperado: suman al consumo real, no a las diferencias. Excluidos del comparativo: ${s.inc.length} incompleto(s).</p>`;
+  // 3 · Alertas
+  const r3=A.length?A.map(([c,t,go])=>`<div class="al ${c}"><span>${t}</span>${go?`<button class="btn ghost sm" type="button" data-go="${esc(go)}">Ver</button>`:''}</div>`).join(''):'<p class="mut">Sin alertas con estos filtros.</p>';
+  // 4 · Esperado vs real + cruce semana × coincidencia
+  const T=s.cruceTot,celda=c=>c.n?`${c.n} · <b>${sgm(c.R-c.E)}</b> <span class="mut">${pct(c.R,c.E)}</span>`:'<span class="mut">—</span>';
+  const fila=w=>`<tr><td><b>${esc(w.k)}</b></td><td>${w.n}</td><td>${w.ok}</td><td>${celda(w.mismo)}</td><td>${celda(w.cambio)}</td><td>${celda(w.extra)}</td><td><b>${sgm(w.R-w.E)}</b> <span class="mut">${pct(w.R,w.E)}</span></td></tr>`;
+  const sh=c=>T.A?fmt(T[c].A/T.A*100)+' %':'—';
+  const r4=`${lg1}${gbars(s.semana)}
+    <h3>Semana × coincidencia de cartón</h3>
+    <div class="kpis">${K('Mismo cartón',T.mismo.n+' OP','',`${sh('mismo')} de la diferencia absoluta`)}${K('Cambio de cartón',T.cambio.n+' OP','',`${sh('cambio')} de la diferencia absoluta`)}${K('Caja Extra',T.extra.n+' OP','',`${sh('extra')} de la diferencia absoluta`)}</div>
+    <div class="scroll"><table class="tc"><thead><tr><th>Semana</th><th>OP</th><th>Correctas</th><th><span class="chip st st-ok">Mismo cartón</span><br><span class="mut">OP · dif m² · %</span></th><th><span class="chip st st-camb">Cambio de cartón</span><br><span class="mut">OP · dif m² · %</span></th><th><span class="chip st st-extra">Caja Extra</span><br><span class="mut">OP · dif m² · %</span></th><th>Total<br><span class="mut">dif m² · %</span></th></tr></thead>
+    <tbody>${s.cruce.map(fila).join('')}${s.cruce.length>1?fila(T).replace('<tr>','<tr class="tt">'):''}</tbody></table></div>
+    <p class="mut">«Correctas» = dentro de tolerancia. Cada OP cuenta en una sola columna según su cartón: mismo que el programado, cambio de cartón o con caja extra.</p>`;
+  // 5 · Por modelo · 6 · Por tipo de cartón
+  const r5=`${lg2}${hbars(s.modelo.slice(0,8))}<p class="mut">Los ${Math.min(8,s.modelo.length)} códigos con mayor diferencia absoluta de ${s.modelo.length}. Lista completa en «Exportar Excel»; por modelo principal y variantes en la pestaña <b>Modelos</b>.</p>`;
+  const r6=`${lg2}${hbars(s.carton)}`;
+  const mas=`<details class="card"><summary><b>Más desgloses</b> <span class="mut">(tipo de OP, Folio vs Línea, inclusiones por modelo)</span></summary>
+    <h3>Por tipo de OP</h3>${lg2}${hbars(s.tipoOp)}<h3>Folio vs Línea</h3>${lg1}${gbars(s.clase)}
+    <h3>Inclusiones por modelo (m² reales)</h3>${s.modInc.length?s.modInc.slice(0,12).map(x=>`<div class="line"><b>${fmt(x.R)} m²</b> · ${esc(x.k)} <span class="mut">(${x.n} reg.)</span></div>`).join(''):'<p class="mut">Sin inclusiones.</p>'}</details>`;
+  $('#ana').innerHTML=SEC(1,'Resumen ejecutivo',r1)+SEC(2,'Indicadores principales',r2)+SEC(3,'Alertas importantes',r3)+
+    (s.B.length?SEC(4,'Consumo esperado vs real por semana',r4)+SEC(5,'Diferencias por modelo',r5)+SEC(6,'Diferencias por tipo de cartón',r6):'')+mas+
+    `<p class="mut">7 · Seguimiento de modelos → pestaña <b>Modelos</b> · 8 · Detalle completo → pestaña <b>Tablero</b></p>`;
+}
+// «Ver» en una alerta: conserva el periodo filtrado y abre la pestaña donde se revisa, ya filtrada.
+$('#ana').onclick=e=>{const g=e.target.dataset.go;if(g==null)return;const [t,v]=g.split('|');
+  $('#fs').value='';$('#fq').value='';if(t==='2'){if(v.startsWith('q:'))$('#fq').value=v.slice(2);else $('#fs').value=v}tab(+t)};
+
+/* ==== 7 · SEGUIMIENTO DE MODELOS ====
+   Agrupa por modelo principal (modeloPrincipal) y compara sus variantes.
+   Variante fuera del patrón: usa un cartón distinto al de la mayoría del modelo, o sus m² por mueble se alejan más de la
+   tolerancia de los m² por mueble típicos del modelo (mediana de sus OP). Solo OP completas; periodo = filtros activos. */
+const med=a=>{const b=[...a].sort((x,y)=>x-y),n=b.length;return n?(n%2?b[(n-1)/2]:(b[n/2-1]+b[n/2])/2):0};
+const moda=a=>{const c={};a.forEach(x=>c[x]=(c[x]||0)+1);return Object.keys(c).sort((x,y)=>c[y]-c[x])[0]||''};
+const juego=r=>r.per.filter(p=>p.R>0).map(p=>p.a).sort((a,b)=>a-b).join(' + ')+' cm';
+function modelosCalc(L){
+  const B=L.filter(isA),G={};
+  B.forEach(r=>{const k=modeloPrincipal(r.modelo);(G[k]||(G[k]=[])).push(r)});
+  const out=Object.entries(G).map(([k,rs])=>{
+    const mueb=a=>a.reduce((s,r)=>s+(r.cant||1),0),SE=a=>a.reduce((s,r)=>s+r.E,0),SR=a=>a.reduce((s,r)=>s+r.R,0);
+    const jm=moda(rs.map(juego)),tip=med(rs.map(r=>r.R/(r.cant||1))),E=SE(rs),R=SR(rs),v=vp(R,E);
+    const V={};rs.forEach(r=>(V[r.modelo]||(V[r.modelo]=[])).push(r));
+    const vars=Object.entries(V).map(([c,a])=>{const mu=mueb(a),e=SE(a),rr=SR(a),j=moda(a.map(juego)),m2=rr/mu,dv=tip?(m2-tip)/tip*100:0;
+      const mot=[];if(Object.keys(V).length>1){if(j!==jm)mot.push(`usa ${j}; el modelo usa ${jm}`);if(Math.abs(dv)>tolv)mot.push(`m² por mueble ${dv>0?'+':''}${dv.toFixed(1)} % vs el modelo`)}
+      return{c,n:a.length,mu,E:e,R:rr,j,m2,esp:e/mu,v:vp(rr,e),dv,fuera:mot.length>0,mot,ult:Math.max(...a.map(r=>r.ts))}}).sort((a,b)=>b.fuera-a.fuera||Math.abs(b.R-b.E)-Math.abs(a.R-a.E));
+    const nf=vars.filter(x=>x.fuera).length,stm=v==null?'Sin datos':Math.abs(v)<=tolv?'OK':v>0?'Usó más':'Usó menos';
+    return{k,rs,n:rs.length,vars,nf,jm,tip,E,R,v,stm,rev:nf>0||stm==='Usó más'||stm==='Usó menos'};
+  }).sort((a,b)=>b.rev-a.rev||b.nf-a.nf||Math.abs(b.R-b.E)-Math.abs(a.R-a.E));
+  return{lista:out,revisar:out.filter(m=>m.nf).length,fuera:out.reduce((s,m)=>s+m.nf,0),aRev:out.filter(m=>m.rev).length};
+}
+function modelosView(){
+  weeks();const L=filt(),M=modelosCalc(L),solo=$('#mrev').checked,lst=solo?M.lista.filter(m=>m.rev):M.lista;
+  $('#dsum').innerHTML=`${cnt(L)}: ${M.lista.length} modelo(s) principal(es) con OP completas`;
+  $('#mkpi').innerHTML=K('Modelos principales',M.lista.length)+K('Requieren revisión',M.aRev,M.aRev?'pos':'')+K('Variantes fuera del patrón',M.fuera,M.fuera?'pos':'','en '+M.revisar+' modelo(s)');
+  const chip=st=>`<span class="chip st st-${st==='OK'?'ok':st==='Sin datos'?'sinop':'cons'}">${st}</span>`;
+  $('#mlista').innerHTML=lst.length?lst.map(m=>`<details class="card mdl"${m.nf?' open':''}><summary><b>${esc(m.k)}</b> <span class="mut">· ${m.vars.length} variante(s) · ${m.n} OP · cartón habitual ${esc(m.jm)} · ${fmt(m.tip)} m²/mueble</span><br>
+    ${chip(m.stm)} <span class="mut">vs esperado ${pct(m.R,m.E)} (${sgm(m.R-m.E)} m²)</span>${m.nf?` <span class="chip bad">${m.nf} variante(s) fuera del patrón</span>`:''}</summary>
+    <div class="scroll"><table><thead><tr><th>Variante</th><th>OP</th><th>Cartón usado</th><th>m²/mueble real</th><th>vs esperado</th><th>Patrón</th></tr></thead><tbody>
+    ${m.vars.map(x=>`<tr${x.fuera?' class="fx"':''}><td><b>${esc(x.c)}</b></td><td>${x.n}${x.n===1?' <span class="mut">(1 registro)</span>':''}</td><td>${esc(x.j)}</td><td>${fmt(x.m2)} <span class="mut">(esp. ${fmt(x.esp)})</span></td><td>${pct(x.R,x.E)}</td><td>${x.fuera?`<span class="chip st st-${x.j!==m.jm?'camb':'cons'}">Fuera del patrón</span><br><span class="mut">${esc(x.mot.join(' · '))}</span>`:m.vars.length>1?'<span class="chip st st-ok">En patrón</span>':'<span class="mut">única variante</span>'}</td></tr>`).join('')}
+    </tbody></table></div></details>`).join(''):`<div class="card mut">${solo?'Ningún modelo requiere revisión con estos filtros. Desmarca «Solo los que requieren revisión» para ver todos.':'No hay OP completas con estos filtros.'}</div>`;
+  $('#mreglas').textContent=AGRUPACION.nombre;$('#mexc').value=Object.entries(cfg.modelosExc||{}).map(([k,v])=>k+' = '+v).join('\n');
+}
+$('#mrev').onchange=()=>modelosView();
+$('#msave').onclick=async()=>{const P={},bad=[];$('#mexc').value.split('\n').map(x=>x.trim()).filter(Boolean).forEach(l=>{const m=l.match(/^(\S+)\s*=\s*(\S.*)$/);if(m)P[m[1].toUpperCase()]=m[2].trim().toUpperCase();else bad.push(l)});
+  if(bad.length){$('#mmsg').textContent='Revisa el formato «CÓDIGO = MODELO PRINCIPAL» en: '+bad.join(' | ');$('#mmsg').style.color='var(--bad)';return}
+  try{await DB.saveSettings({modelosExc:P});cfg.modelosExc=P;$('#mmsg').textContent='Excepciones guardadas.';$('#mmsg').style.color='';modelosView()}catch(x){dbErr(x,'No se pudieron guardar las excepciones')}};
+[...FSEL,'#ddet'].forEach(x=>$(x).oninput=()=>{lim=100;refresh()});
+$('#more').onclick=()=>{lim+=100;board()};
+$('#fclr').onclick=()=>{FSEL.forEach(x=>$(x).value='');lim=100;refresh()};
+const sha=async t=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(t)))].map(x=>x.toString(16).padStart(2,'0')).join('');
+function ask(mode){return new Promise(res=>{
+  const d=$('#dlg'),cr=mode==='create';$('#dmsg').textContent=cr?'Crea una contraseña de administrador':'Contraseña de administrador';
+  $('#dpw').value=$('#dpw2').value='';$('#derr').textContent='';$('#dpw2').classList.toggle('hide',!cr);
+  $('#dok').onclick=async()=>{const p=$('#dpw').value;
+    if(cr){if(p.length<6){$('#derr').textContent='Mínimo 6 caracteres.';return}if(p!==$('#dpw2').value){$('#derr').textContent='No coinciden.';return}
+      const salt=[...crypto.getRandomValues(new Uint32Array(3))].join('-');await DB.setAuth({salt,h:await sha(salt+p)});d.close();res(true)}
+    else{const a=await DB.getAuth();if(a&&await sha(a.salt+p)===a.h){d.close();res(true)}else $('#derr').textContent='Contraseña incorrecta.'}};
+  $('#dno').onclick=()=>{d.close();res(false)};d.oncancel=()=>res(false);d.onkeydown=e=>{if(e.key==='Enter')$('#dok').click()};
+  d.showModal();$('#dpw').focus()})}
+$('#adm').onchange=async e=>{const on=e.target.checked;
+  if(on){let ok=false;try{ok=await ask((await DB.getAuth())?'login':'create')}catch(x){alert('Este navegador no permite el login (abre el archivo desde https o localhost).')}
+    if(!ok){e.target.checked=false;return}}
+  document.body.classList.toggle('admin',on);if(!on)tab(1)};
+$('#cpw').onclick=()=>ask('create');
+$('#dbody').onclick=async e=>{
+  const d=e.target.dataset;
+  if(d.del&&confirm('¿Borrar este reporte?')){if(String(editId)===d.del){editId=null}
+    try{await DB.deleteReport(d.del)}catch(x){dbErr(x,'No se pudo borrar')}
+    await reload();board()}
+  if(d.rev){const r=reports.find(x=>String(x.id)===d.rev);if(!r)return;
+    try{await DB.saveReport({...r,rev:true})}catch(x){dbErr(x,'No se pudo marcar como revisada')}
+    await reload();board()}
+  if(d.ed){await reload();const r=reports.find(x=>String(x.id)===d.ed);
+    if(!r){alert('Ese reporte ya no existe (se modificó en otra pestaña).');board();return}
+    if(r.kind==='op'&&!cat[r.op]){alert('Esa OP ya no está en el catálogo cargado.');return}
+    tab(1);$('#kind').value=r.kind;$('#kind').onchange();editId=r.id;start(r.kind,r.kind==='op'?r.op:r.modelo,r)}
+};
+$('#xbtn').onclick=()=>{
+  const L=filt();if(!L.length){alert('No hay registros con el filtro actual.');return}
+  const s=summ(L),M=modelosCalc(L),op=r=>r.kind==='op',Y=r=>r.mismo===null?'N/A':r.mismo?'Sí':'No',V=(R,E)=>{const v=vp(R,E);return v==null?'':r3(v)};
+  const dbl=r=>esDoble(r)?(r.rev?'Revisada':'Pendiente de revisión'):'';
+  const A=L.map(r=>{const e=est(r);return{'Tipo de registro':KINDS[r.kind],'OP':r.op,'Modelo':r.modelo,'Modelo principal (provisional)':modeloPrincipal(r.modelo),'Tipo de modelo':clase(r.modelo),'Estado':e.t,'Causa principal':e.c,
+    'Cartón programado':op(r)?cartP(r):'','Cartón utilizado':cartU(r),'Coincidencia de cartón':op(r)&&isA(r)?COIN[coin(r)]:'','Consumo esperado (m²)':op(r)?r3(r.E):'','Consumo real (m²)':r3(r.R),'Diferencia total (m²)':op(r)?r3(r.diff):'','Variación %':op(r)?V(r.R,r.E):'',
+    'Diferencia por mueble (m²)':op(r)?r3(r.dm):'','Diferencia absoluta (m²)':op(r)?r3(r.abs):'','Cajas esperadas (Cant)':op(r)?r.ce:'','Cajas capturadas':r.cr,'Mismo tipo de cartón':Y(r),
+    'Semana (registro)':r.semana,'Fecha de registro':ymd(new Date(r.ts)),'Vencimiento OP':r.venc||'','Tipo de OP':op(r)?tipoReg(r):'','Estado ERP':r.estadoERP,
+    'OP doble consumo':dbl(r),'1/2 cartones confirmado por operador':r.conf12?'Sí':'','Operador':r.operador||'','Comentarios':r.com}});
+  const ps=(r,p)=>r.kind!=='op'?KINDS[r.kind]:(p.E&&!p.R)?'Sin capturar':!p.E?'Cartón no esperado':Math.abs((p.R-p.E)/p.E*100)<=tolv?'Correcto':'Con diferencia';
+  const D=[...L].sort((a,b)=>String(a.op).localeCompare(b.op)).flatMap(r=>r.per.map(p=>({'Tipo de registro':KINDS[r.kind],'OP':r.op,'Tipo de OP':op(r)?tipoReg(r):'','Modelo':r.modelo,'Tipo de modelo':clase(r.modelo),'Semana':r.semana,'Estado de la OP':est(r).t,
+    'Cartón (cm)':p.a,'Esperado (m²)':r3(p.E),'Real (m²)':r3(p.R),'Diferencia (m²)':r3(p.R-p.E),'Variación %':V(p.R,p.E),'Estado del cartón':ps(r,p),'Cajas esperadas (Cant)':p.ce||'','Cajas capturadas':p.cr,
+    'Medidas capturadas':r.snap.lines.filter(l=>l.a===p.a&&num(l.l)>0).map(l=>`${l.n} caja(s) × ${l.l} cm × ${l.c} cartón(es)`).join(' | ')})));
+  const g=(t,a)=>[[t],['Concepto','Esperado (m²)','Real (m²)','Dif. neta (m²)','Variación %','Positiva (m²)','Negativa (m²)','Absoluta (m²)','Registros'],...a.map(x=>[x.k,r3(x.E),r3(x.R),r3(x.R-x.E),V(x.R,x.E),r3(x.P),r3(x.N),r3(x.P-x.N),x.n]),[]];
+  const net=s.P+s.N,abs=s.P-s.N,cz=c=>[c.n,r3(c.R-c.E),V(c.R,c.E)];
+  const CR=[['Semana × coincidencia de cartón (OP completas)'],['Semana','OP','Correctas','Mismo cartón: OP','Mismo cartón: dif (m²)','Mismo cartón: var %','Cambio de cartón: OP','Cambio: dif (m²)','Cambio: var %','Caja Extra: OP','Caja Extra: dif (m²)','Caja Extra: var %','Total dif (m²)','Total var %'],
+    ...[...s.cruce,s.cruceTot].map(w=>[w.k,w.n,w.ok,...cz(w.mismo),...cz(w.cambio),...cz(w.extra),r3(w.R-w.E),V(w.R,w.E)]),[]];
+  const RS=[['Indicadores generales (solo OP completas)'],['Esperado (m²)',r3(s.E)],['Real (m²)',r3(s.R)],['Variación %',V(s.R,s.E)],['Diferencia positiva (m²)',r3(s.P)],['Diferencia negativa (m²)',r3(s.N)],['Diferencia neta (m²)',r3(net)],
+    ['Diferencia absoluta por OP (m²)',r3(abs)],['Diferencia absoluta por cartón (m²)',r3(s.AC)],['% compensado',abs?r3((abs-Math.abs(net))/abs*100):0],['OP analizadas',s.B.length],['OP correctas',s.ok],
+    ['Registros incompletos (excluidos)',s.inc.length],['OP doble consumo pendientes de revisión',L.filter(doblePend).length],[],['Consumo sin OP (no entra en diferencias)'],['Inclusiones (registros)',s.incl.length],['Inclusiones (m² reales)',r3(s.Rinc)],
+    ['Caja de Ingeniería (registros)',s.ingr.length],['Caja de Ingeniería (m² reales)',r3(s.Ring)],['Consumo real total: OP completas + sin OP (m²)',r3(s.Rtot)],[],['Registros por estado'],...Object.entries(L.reduce((m,r)=>{const t=est(r).t;m[t]=(m[t]||0)+1;return m},{})),[],
+    ...CR,...g('Por modelo (código completo)',s.modelo),...g('Por tipo de cartón',s.carton),...g('Folio vs Línea',s.clase),...g('Por tipo de OP',s.tipoOp),...g('Por tipo de registro',s.reg),...g('Inclusiones por modelo (solo real)',s.modInc),...g('Por semana (registro)',s.semana)];
+  const MO=M.lista.flatMap(m=>m.vars.map(x=>({'Modelo principal (provisional)':m.k,'Estatus del modelo':m.stm,'Modelo: variación %':V(m.R,m.E),'Modelo: cartón habitual':m.jm,'Modelo: m²/mueble típico':r3(m.tip),
+    'Variante':x.c,'OP':x.n,'Muebles':x.mu,'Cartón usado':x.j,'m²/mueble real':r3(x.m2),'m²/mueble esperado':r3(x.esp),'Variación % vs esperado':V(x.R,x.E),'Diferencia (m²)':r3(x.R-x.E),
+    'Patrón':m.vars.length<2?'Única variante':x.fuera?'Fuera del patrón':'En patrón','Motivo':x.mot.join(' · '),'Último registro':ymd(new Date(x.ult))})));
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(A),'Reporte');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(D),'Desglose por OP');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(RS),'Resumen');
+  XLSX.utils.book_append_sheet(wb,MO.length?XLSX.utils.json_to_sheet(MO):XLSX.utils.aoa_to_sheet([['Sin OP completas']]),'Modelos');
+  XLSX.writeFile(wb,'consumo-carton-'+ymd(new Date())+'.xlsx');
+};
+$('#bk').onclick=async()=>{try{reports=await DB.listReports();cat=await DB.getCatalog()}catch(x){dbErr(x,'No se pudo leer para el respaldo');return}
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify({v:3,reports,cat})],{type:'application/json'}));a.download='respaldo-consumo-carton-'+ymd(new Date())+'.json';a.click()};
+$('#bki').onchange=async e=>{const f=e.target.files[0];if(!f)return;
+  try{const d=JSON.parse(await f.text()),r=await DB.importReports(Array.isArray(d.reports)?d.reports:[]);
+    cat=await DB.upsertOps(d.cat||{},{overwrite:false});await reload();showCat();
+    $('#filemsg').textContent='Respaldo importado: '+r.added+' reportes nuevos ('+reports.length+' en total).'}
+  catch(err){$('#filemsg').textContent='Respaldo inválido o no se pudo guardar.'}e.target.value=''};
+// 1 Captura (operador y admin) · 3 Análisis · 4 Modelos · 2 Tablero (solo admin)
+async function tab(n){if(n!==1&&!document.body.classList.contains('admin'))n=1;if(n===1&&document.body.classList.contains('ro'))n=3;cur=n;
+  [1,2,3,4].forEach(i=>{$('#v'+i).classList.toggle('hide',n!==i);$('#t'+i).classList.toggle('on',n===i)});
+  $('#flt').classList.toggle('hide',n===1);$('#ddetw').classList.toggle('hide',n!==2);
+  if(n!==1){await reload();if(cur!==n)return}
+  if(n===2)board();if(n===3)analysis();if(n===4)modelosView();if(n===1)misHoy()}
+$('#t1').onclick=()=>tab(1);$('#t2').onclick=()=>tab(2);$('#t3').onclick=()=>tab(3);$('#t4').onclick=()=>tab(4);
+/* ==== SESIÓN, ROLES Y OPERADOR ====
+   Modo local: «Modo admin» con contraseña en el navegador (como en 4.x).
+   Nube: inicio de sesión (Supabase Auth) y rol de la tabla «perfiles»:
+     admin → todo · planta → solo Captura · consulta → Análisis, Modelos y Tablero sin poder modificar. */
+const ROL={admin:'Administración',planta:'Planta',consulta:'Consulta'};
+let sesion=null,operadores=[],operador='';
+operador=PREF.get('operador');
+function aplicarRol(){const nube=DB.name==='nube',rol=sesion&&sesion.rol;
+  document.body.classList.toggle('nube',nube);document.body.classList.remove('login');
+  if(nube){document.body.classList.toggle('admin',rol==='admin'||rol==='consulta');document.body.classList.toggle('ro',rol==='consulta')}
+  $('#admw').classList.toggle('hide',nube);$('#ses').classList.toggle('hide',!nube);
+  if(nube)$('#ses').innerHTML=`${esc(sesion.nombre||sesion.email)} · ${esc(ROL[rol]||rol)} <button class="btn ghost sm" id="salir" type="button">Salir</button>`}
+function mostrarLogin(msg){document.body.classList.add('login','nube');$('#admw').classList.add('hide');$('#vlogin').classList.remove('hide');$('#lmsg').textContent=msg||'';stat('')}
+// Ninguna espera del servidor se queda colgada: si no responde a tiempo, mensaje claro (y se puede reintentar).
+let LIMITE_MS=20000;   // 20 s
+const conLimite=(p,ms=LIMITE_MS)=>Promise.race([p,new Promise((_,ko)=>setTimeout(()=>{const x=new Error('El servidor tardó demasiado en responder. Revisa la conexión a internet'+(otraPestana?' y cierra la otra pestaña de la app':'')+'; luego recarga la página (F5).');x.code='timeout';ko(x)},ms))]);
+// Aviso si la app está abierta en otra pestaña de este navegador (dos pestañas pueden trabar el inicio de sesión).
+let otraPestana=false;
+try{const bc=new BroadcastChannel('consumo-carton');bc.onmessage=e=>{if(e.data==='hola')bc.postMessage('aqui');if(e.data==='aqui'&&!otraPestana){otraPestana=true;
+  const m='⚠ La app ya está abierta en otra pestaña de este navegador. Usa solo una para evitar problemas al iniciar sesión o guardar.';stat(m,true);if(!$('#vlogin').classList.contains('hide'))$('#lmsg').textContent=m}};
+  bc.postMessage('hola')}catch(e){}
+$('#flogin').onsubmit=async e=>{e.preventDefault();$('#lmsg').textContent='Entrando…';$('#flogin button').disabled=true;
+  try{sesion=await conLimite(DB.entrar($('#lmail').value.trim(),$('#lpw').value));$('#lpw').value='';
+    if(!sesion||!sesion.rol){mostrarLogin('Tu usuario no tiene un rol asignado. Pide al administrador que lo dé de alta.');return}
+    $('#vlogin').classList.add('hide');await cargarApp()}
+  catch(x){$('#lmsg').textContent=x.message||'No se pudo iniciar sesión.'}
+  finally{$('#flogin button').disabled=false}};
+$('#ses').onclick=async e=>{if(e.target.id!=='salir')return;try{await DB.salir()}catch(x){}PREF.set('operador','');location.reload()};
+// ¿Quién captura? (solo si administración definió la lista de operadores). Se recuerda en el equipo.
+function showOperador(){const c=$('#opcard');if(!operadores.length){c.classList.add('hide');return}c.classList.remove('hide');
+  c.innerHTML=operadores.includes(operador)?`<div class="head"><span>Operador: <b>${esc(operador)}</b></span><button class="btn ghost sm" id="opchg" type="button">Cambiar</button></div>`:
+    `<label class="mut">¿Quién captura?<select id="opsel"><option value="">Elige tu nombre…</option>${operadores.map(n=>`<option>${esc(n)}</option>`).join('')}</select></label>`}
+$('#opcard').onchange=e=>{if(e.target.id!=='opsel')return;operador=e.target.value;PREF.set('operador',operador);showOperador();misHoy()};
+$('#opcard').onclick=e=>{if(e.target.id!=='opchg')return;operador='';PREF.set('operador','');showOperador();misHoy()};
+$('#saveopr').onclick=async()=>{const L=[...new Set($('#oprcfg').value.split('\n').map(x=>x.trim()).filter(Boolean))];
+  try{await DB.saveOperadores(L);operadores=L;showOperador();cfgMsg(L.length?`Operadores guardados (${L.length}).`:'Lista vacía: no se preguntará quién captura.')}catch(x){dbErr(x,'No se pudieron guardar los operadores')}};
+async function cargarApp(){
+  aplicarRol();stat('Cargando datos…');
+  try{const [st,c,r,o]=await Promise.all([DB.getSettings(),DB.getCatalog(),DB.listReports(),DB.listOperadores()]);
+    tolv=st.tol;cfg={tol:st.tol,cartones:st.cartones||cfg.cartones,prefijos:st.prefijos||cfg.prefijos,excluir:st.excluir||cfg.excluir,modelosExc:st.modelosExc||cfg.modelosExc};cat=c;reports=r;operadores=o||[];stat('')}
+  catch(e){dbErr(e,'No se pudieron cargar los datos')}
+  $('#tol').value=tolv;$('#oprcfg').value=operadores.join('\n');showCat();showCfg();showOperador();misHoy();
+  DB.onChange(async()=>{await reload();if(cur!==1)refresh();else misHoy()});
+  if(document.body.classList.contains('ro'))tab(3);
+}
+async function startApp(){
+  if(DB.name==='nube'){stat('Conectando…');
+    try{sesion=await conLimite(DB.sesion())}catch(e){if(e.code==='timeout')return mostrarLogin(e.message);dbErr(e,'No se pudo conectar con el servidor');return}
+    if(!sesion)return mostrarLogin();
+    if(!sesion.rol)return mostrarLogin('Tu usuario no tiene un rol asignado. Pide al administrador que lo dé de alta.');
+  }
+  await cargarApp();
+}
+startApp();
+</script>
+</body>
+</html>
