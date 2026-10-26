@@ -77,7 +77,10 @@ details.mdl>summary{cursor:pointer;line-height:1.8}
 @media(max-width:520px){.hb{grid-template-columns:76px 1fr 112px}.tabs button{padding:9px 4px;font-size:14px}}
 .nodet .det{display:none}
 .top{display:flex;justify-content:space-between;align-items:start;gap:10px}
-.line{margin:3px 0;font-size:13px}.tot{font-weight:600;font-size:14px}
+.line{margin:3px 0;font-size:13px}
+.mot{margin-top:10px;padding:10px;border:1px dashed var(--s-camb,#b4540a);border-radius:8px}.mot.err{border:2px solid var(--bad);background:var(--badbg)}.mot .row{margin-top:6px}.mot .btn{flex:1 1 160px}
+.card.hl{outline:3px solid var(--warn);outline-offset:2px}.fp{color:var(--mut);font-size:12px}
+#dlgf{border:0;border-radius:14px;background:var(--card);color:var(--ink);width:min(520px,92vw);padding:24px;text-align:center}#dlgf h2{font-size:26px;margin:0 0 18px;color:var(--bad)}#dlgf .btn{font-size:18px;padding:14px 22px;width:100%}#dlgf a{display:inline-block;margin-top:14px;color:var(--mut);font-size:14px;cursor:pointer}.tot{font-weight:600;font-size:14px}
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:12px}
 .kpi{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px}.kpi b{display:block;font-size:19px}
 .pos{color:var(--bad)}.neg{color:var(--acc)}
@@ -87,12 +90,14 @@ details.mdl>summary{cursor:pointer;line-height:1.8}
 .hb .tr{display:flex;height:14px;background:var(--bg);border-radius:3px}.hb .l,.hb .r{width:50%;display:flex}.hb .l{justify-content:flex-end}.hb i{display:block;height:100%}
 .gb{display:flex;gap:10px;height:170px;overflow-x:auto}
 .gb>div{flex:1 0 62px;text-align:center;font-size:11px;display:flex;flex-direction:column;justify-content:flex-end}
+.gb .pr i.d{background:var(--warn)}.gb .mx{font-weight:700}
+.mtb{display:flex;height:14px;border-radius:7px;overflow:hidden;margin:6px 0 8px;background:var(--line)}.mtb i{display:block}
 .gb .pr{display:flex;gap:3px;align-items:flex-end;height:100px;justify-content:center}.gb .pr i{width:16px;display:block;border-radius:3px 3px 0 0}
 </style>
 </head>
 <body>
 <main>
-<div class="top"><div><h1>Consumo de cartón <span class="chip ok" title="Versión técnica 5.1.1">Versión 1</span></h1><p class="sub">Captura en cm, cálculo y reportes en m².</p></div>
+<div class="top"><div><h1>Consumo de cartón <span class="chip ok" title="Versión técnica 5.2.0">Versión 1</span></h1><p class="sub">Captura en cm, cálculo y reportes en m².</p></div>
 <div class="mut" style="text-align:right"><label id="admw" style="white-space:nowrap"><input type="checkbox" id="adm" style="width:auto"> Modo admin</label><span id="ses" class="hide"></span></div></div>
 <section id="vlogin" class="card hide" style="max-width:380px;margin:24px auto">
 <h2>Iniciar sesión</h2><p class="mut" style="margin-top:0">En los equipos de planta se inicia sesión una sola vez; el equipo la recuerda.</p>
@@ -106,6 +111,7 @@ details.mdl>summary{cursor:pointer;line-height:1.8}
 <label class="mut" style="display:block;margin-top:8px">Comentario (opcional)<textarea id="sgc" rows="3" placeholder="Ej.: se reportó a ingeniería para dar de alta el cartón de 120 cm"></textarea></label>
 <p class="mut" style="margin:6px 0">La app no cambia la programación: la corrección se hace en Dynamics.</p>
 <div class="row"><button class="btn" id="sgok" type="button">Guardar</button><button class="btn ghost" id="sgno" type="button">Cancelar</button></div></dialog>
+<dialog id="dlgf"><h2 id="dft"></h2><button class="btn" id="dfgo" type="button"></button><br><a id="dfsk" role="button" tabindex="0"></a></dialog>
 <p class="mut hide" id="dbstat" role="status" aria-live="polite" style="margin:0 0 8px"></p>
 <div class="tabs adm"><button id="t1" class="on w">Captura</button><button id="t3">Análisis</button><button id="t4">Modelos</button><button id="t2">Tablero</button></div>
 
@@ -564,12 +570,17 @@ $('#file').onchange=async e=>{
 // Selección
 // OPERADOR = CAPTURAR: la pantalla de captura solo pide lo indispensable (qué registra, cartón, largo, 1 o 2 cartones, cajas, comentario).
 // Esperado, diferencias, estados y alertas viven en administración (Análisis, Modelos, Tablero).
+// Motivos del cambio de cartón (fuente única: agregar o quitar un motivo = una línea aquí).
+const MOTIVOS={exist:'No hay en existencia',inc:'Cartón incorrecto'};
+const motTxt=r=>[...new Set((r.mcc||[]).map(x=>MOTIVOS[x.m]||x.m))].join(', ');
+// Fecha ISO (aaaa-mm-dd) → dd/mm/aaaa
+const fISO=s=>{const m=String(s||'').match(/^(\d{4})-(\d\d)-(\d\d)/);return m?m[3]+'/'+m[2]+'/'+m[1]:''};
 const KHINT={ing:'Caja de Ingeniería: escribe el modelo del mueble.',inc:'Inclusión: escribe el modelo del mueble (no tiene OP).'};
 $('#kind').onchange=()=>{const k=$('#kind').value;$('#srch').classList.toggle('hide',k!=='op');$('#manual').classList.toggle('hide',k==='op');$('#kindhint').textContent=KHINT[k]||'';$('#work').classList.add('hide');W=null};
 $('#q').oninput=()=>{
   const q=$('#q').value.trim().toLowerCase();if(!q){$('#hits').innerHTML='';return}
   const l=Object.values(cat).filter(o=>!excluida(o.op)&&(o.modelo+' '+o.op+' '+o.desc).toLowerCase().includes(q)).slice(0,8);
-  $('#hits').innerHTML=l.length?l.map(o=>`<button class="hit" data-k="${esc(o.op)}"><b>${esc(o.modelo)}</b> <span class="mut">${esc(o.op)} · ${o.cant||1} mueble(s)</span></button>`).join(''):'<p class="mut">Sin resultados. Revisa el modelo u OP.</p>';
+  $('#hits').innerHTML=l.length?l.map(o=>`<button class="hit" data-k="${esc(o.op)}"><b>${esc(o.modelo)}</b> <span class="mut">${esc(o.op)} · ${o.cant||1} mueble(s)${o.fecha?' · Programa '+fISO(o.fecha):''}</span></button>`).join(''):'<p class="mut">Sin resultados. Revisa el modelo u OP.</p>';
 };
 $('#hits').onclick=e=>{const b=e.target.closest('.hit');if(b)start('op',b.dataset.k)};
 $('#mgo').onclick=()=>{const m=$('#mm').value.trim();if(!m){$('#savemsg').textContent='';alert('Escribe el modelo del mueble.');return}start($('#kind').value,m)};
@@ -581,9 +592,9 @@ function start(kind,key,saved){
     W={kind,op:o.op,modelo:o.modelo,desc:o.desc,cant:o.cant||1,estado:o.estado,fecha:o.fecha,rows:o.rows.map(r=>({ancho:r.ancho,val:r.val}))};
   }else W={kind,op:'',modelo:key,desc:'',cant:0,rows:[],fecha:''};
   // cajas prellenadas con Cant (el operador solo cambia si usó otra cantidad)
-  W.lines=s?JSON.parse(JSON.stringify(s.lines)):(kind==='op'&&W.rows.length?W.rows.map(r=>nl(r.ancho,W.cant)):[nl(widths()[0]||140,kind==='op'?W.cant:1)]);
+  W.lines=s?JSON.parse(JSON.stringify(s.lines)):(kind==='op'&&W.rows.length?W.rows.map(r=>({...nl(r.ancho,W.cant),o:r.ancho})):[nl(widths()[0]||140,kind==='op'?W.cant:1)]);
   W.ver=saved?saved.version:undefined;   // versión con la que se empezó a corregir: si otro la cambia mientras tanto, no se pisa
-  $('#com').value=W.com=s?s.com:'';
+  $('#com').value=W.com=s?s.com:'';W.motErr=false;
   $('#hits').innerHTML='';$('#q').value='';$('#savemsg').textContent='';
   $('#work').classList.remove('hide');render();
 }
@@ -593,16 +604,22 @@ const okC=c=>+c===1||+c===2;
 function render(){
   $('#wtitle').textContent=W.modelo+(W.op?' · '+W.op:'');
   $('#wchips').innerHTML=(editId!=null?'<span class="chip pend">Corrigiendo reporte guardado</span> ':'')+(W.kind!=='op'?`<span class="chip na">${esc(KINDS[W.kind])}</span>`:'');
-  $('#wmeta').textContent=W.kind==='op'?`${W.cant} mueble(s)`:'';
+  $('#wmeta').textContent=W.kind==='op'?`${W.cant} mueble(s)`+(W.fecha?` · Fecha de programa: ${fISO(W.fecha)}`:''):'';
   const A=(i,v)=>`<select data-b="${i}" data-f="a">${widths().map(w=>`<option value="${w}"${v==w?' selected':''}>${w} cm</option>`).join('')}</select>`;
-  $('#form').innerHTML=W.lines.map((L,i)=>`<div class="card"><div class="head"><b>Cartón ${i+1}</b>${W.lines.length>1?`<button class="btn ghost sm" data-rm="${i}" type="button">Quitar</button>`:''}</div>
+  $('#form').innerHTML=W.lines.map((L,i)=>`<div class="card" id="cap${i}"><div class="head"><b>Cartón ${i+1}</b>${W.lines.length>1?`<button class="btn ghost sm" data-rm="${i}" type="button">Quitar</button>`:''}</div>
   <div class="row" style="margin-top:6px"><label>Cartón${A(i,L.a)}</label>
   <label>Largo (cm)<input inputmode="decimal" data-b="${i}" data-f="l" value="${esc(L.l)}"></label>
   <label>Cartones por caja<select data-b="${i}" data-f="c"${okC(L.c)?'':' style="border-color:var(--bad)"'}><option value="0"${okC(L.c)?'':' selected'}>Elige…</option><option value="1"${L.c==1?' selected':''}>1 cartón</option><option value="2"${L.c==2?' selected':''}>2 cartones (tapa y fondo)</option></select></label>
-  <label>Cajas<input inputmode="numeric" data-b="${i}" data-f="n" value="${esc(L.n)}"></label></div></div>`).join('');
+  <label>Cajas<input inputmode="numeric" data-b="${i}" data-f="n" value="${esc(L.n)}"></label></div>${cambiado(L)?panelMot(L,i):''}</div>`).join('');
 }
-$('#form').addEventListener('input',e=>{const d=e.target.dataset;if(d.f){W.lines[d.b][d.f]=(d.f==='a'||d.f==='c')?+e.target.value:e.target.value;if(d.f==='c')e.target.style.borderColor=e.target.value==='0'?'var(--bad)':''}});
-$('#form').addEventListener('click',e=>{const a=e.target.dataset.rm;if(a!==undefined){W.lines.splice(a,1);render()}});
+// Cambio del cartón sugerido: solo en tarjetas prellenadas del ERP (L.o = cartón programado) cuyo ancho se cambió.
+const cambiado=L=>W.kind==='op'&&L.o!=null&&+L.a!==+L.o;
+const panelMot=(L,i)=>`<div class="mot${W.motErr&&!L.m?' err':''}"><b>¿Por qué se cambió el cartón?</b> <span class="mut">Programado ${L.o} cm → usado ${L.a} cm</span>
+  <div class="row">${Object.entries(MOTIVOS).map(([k,t])=>`<button type="button" class="btn${L.m===k?'':' ghost'}" data-mot="${k}" data-i="${i}">${L.m===k?'✓ ':''}${esc(t)}</button>`).join('')}</div></div>`;
+$('#form').addEventListener('input',e=>{const d=e.target.dataset;if(d.f){const L=W.lines[d.b];L[d.f]=(d.f==='a'||d.f==='c')?+e.target.value:e.target.value;if(d.f==='c')e.target.style.borderColor=e.target.value==='0'?'var(--bad)':'';
+  if(d.f==='a'){if(!cambiado(L))delete L.m;render()}}});   // mostrar u ocultar «¿Por qué se cambió el cartón?»
+$('#form').addEventListener('click',e=>{const a=e.target.dataset.rm;if(a!==undefined){W.lines.splice(a,1);render();return}
+  const m=e.target.closest('[data-mot]');if(m){W.lines[m.dataset.i].m=m.dataset.mot;render()}});
 $('#addx').onclick=()=>{if(W){W.lines.push(nl(W.rows[0]?W.rows[0].ancho:(widths()[0]||140),W.kind==='op'?W.cant:1));render()}};
 $('#com').oninput=e=>{if(W)W.com=e.target.value};
 
@@ -641,10 +658,26 @@ const sinElegir=()=>W.lines.map((L,i)=>[L,i]).filter(([L])=>num(L.l)>0&&!okC(L.c
 const update=()=>{};   // compatibilidad: la captura ya no muestra cálculos en vivo
 
 // Guardar
-$('#save').onclick=async()=>{
+// Cartones programados en el ERP (con m²) que quedaron sin capturar y que no se cambiaron por otro.
+const capt=L=>num(L.l)>0&&num(L.n)>0;
+function faltan(){if(W.kind!=='op')return[];
+  return W.rows.filter(r=>r.val>0&&!W.lines.some(L=>capt(L)&&(+L.a===+r.ancho||(L.o!=null&&+L.o===+r.ancho)))).map(r=>+r.ancho)}
+const yLst=a=>a.length>1?a.slice(0,-1).join(', ')+' y '+a[a.length-1]:String(a[0]);
+let faltaA=null;
+$('#dfgo').onclick=()=>{$('#dlgf').close();const a=faltaA;let i=W.lines.findIndex(L=>!capt(L)&&(+L.a===a||+L.o===a));
+  if(i<0){W.lines.push({...nl(a,W.cant),o:a});i=W.lines.length-1}
+  render();const c=$('#cap'+i);if(c){c.classList.add('hl');if(c.scrollIntoView)c.scrollIntoView({block:'center'})}
+  const f=$(`[data-b="${i}"][data-f="l"]`);if(f)f.focus()};
+$('#dfsk').onclick=()=>{$('#dlgf').close();guardar(true)};
+$('#save').onclick=()=>guardar(false);
+async function guardar(sinFalta){
   if(!W||saving)return;
   if(operadores.length&&!operadores.includes(operador)&&editId==null){$('#savemsg').textContent='Elige tu nombre en «¿Quién captura?» antes de guardar.';return}
+  const fa=sinFalta?[]:faltan();
+  if(fa.length){faltaA=fa[0];$('#dft').textContent=`⚠ Falta capturar ${yLst(fa.map(a=>a+' cm'))}`;$('#dfgo').textContent=`Capturar ${fa[0]} cm`;$('#dfsk').textContent=`Guardar sin ${yLst(fa.map(a=>a+' cm'))}`;$('#dlgf').showModal();return}
   const se=sinElegir();if(se.length){$('#savemsg').textContent='Elige 1 o 2 cartones por caja en el cartón '+se.join(', ')+'.';return}
+  const sm=W.lines.map((L,i)=>[L,i]).filter(([L])=>cambiado(L)&&capt(L)&&!L.m).map(([,i])=>i+1);
+  if(sm.length){W.motErr=true;render();const c=$('#cap'+(sm[0]-1));if(c&&c.scrollIntoView)c.scrollIntoView({block:'center'});$('#savemsg').textContent='Elige por qué se cambió el cartón (cartón '+sm.join(', ')+').';return}
   const c=calc();
   if(!(c.R+(c.Rsp||0))){$('#savemsg').textContent='Captura al menos un cartón con largo y cajas antes de guardar.';return}
   const du=W.kind==='op'?dudas12(c.per):[];
@@ -659,6 +692,7 @@ $('#save').onclick=async()=>{
       ce:c.ce,cr:c.cr,E:c.E,R:c.R,Rsp:c.Rsp,diff:c.diff,dm:c.dm,abs:c.abs,mismo:c.mismo,fx:c.fx,st:c.st,est:c.est,com:(W.com||'').trim(),
       conf12:du.length?du:(old&&old.conf12)||null,rev:old?!!old.rev:false,
       operador:old?(old.operador||''):(operador||''),version:old?W.ver:undefined,
+      mcc:W.lines.filter(L=>cambiado(L)&&capt(L)&&L.m).map(L=>({de:+L.o,a:+L.a,m:L.m})),
       per:c.per.map(p=>({a:p.a,E:p.E,R:p.R,ce:p.ce,cr:p.cr,st:p.st,prog:p.prog,z:p.z,...(p.sp?{sp:true,spm:p.spm}:{})})),
       snap:{rows:[],lines:W.lines,com:W.com||''}};
     await DB.saveReport(rep);
@@ -669,12 +703,12 @@ $('#save').onclick=async()=>{
     $('#savemsg').textContent=e&&(e.code==='conflict')?'⚠ '+e.message:e&&e.code==='auth'?'⚠ La sesión expiró: usa «Salir» y vuelve a iniciar sesión. La captura sigue en pantalla.':e&&e.code==='verify'?'⚠ El reporte no quedó en el almacenamiento del navegador. No cierres la página y avisa al administrador.':'⚠ NO se guardó el reporte. Inténtalo de nuevo; si sigue fallando, avisa al administrador.';
     dbErr(e);
   }finally{saving=false;$('#save').disabled=false}
-};
+}
 $('#clear').onclick=()=>{if(W){const k=W.kind==='op'?W.op:W.modelo;editId=null;start(W.kind,k)}};
 // «Mis capturas de hoy»: solo para confirmar que se guardó (sin estados ni diferencias).
 function misHoy(){
   const hoy=ymd(new Date()),L=reports.filter(r=>ymd(new Date(r.ts))===hoy&&(!operador||!operadores.length||r.operador===operador)).sort((a,b)=>b.ts-a.ts);
-  $('#hoy').innerHTML=`<h2>Mis capturas de hoy <span class="mut">(${L.length})</span></h2>`+(L.length?L.map(r=>`<div class="line"><span class="mut">${new Date(r.ts).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'})}</span> · <b>${esc(r.modelo)}</b> · ${r.kind==='op'?esc(r.op):esc(KINDS[r.kind])} · ${r.per.filter(p=>p.R>0).map(p=>`${p.a} cm × ${p.cr} caja(s)`).join(', ')}</div>`).join(''):'<p class="mut">Todavía no hay capturas hoy.</p>');
+  $('#hoy').innerHTML=`<h2>Mis capturas de hoy · ${new Date().toLocaleDateString('es-MX',{weekday:'long'})} ${fISO(hoy)} <span class="mut">(${L.length})</span></h2>`+(L.length?L.map(r=>`<div class="line"><span class="mut">${new Date(r.ts).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'})}</span> · <b>${esc(r.modelo)}</b> · ${r.kind==='op'?esc(r.op):esc(KINDS[r.kind])} · ${r.per.filter(p=>p.R>0).map(p=>`${p.a} cm × ${p.cr} caja(s)`).join(', ')}</div>`).join(''):'<p class="mut">Todavía no hay capturas hoy.</p>');
 }
 
 // Tablero, análisis y exportación  (ADMINISTRACIÓN = INFORMACIÓN ORDENADA)
@@ -739,6 +773,7 @@ function detail(r){
   else{h+=bul('Esperado',fmt(r.E/u)+' m²')+bul('Real',fmt(r.R/u)+' m²')+bul('Diferencia',sgm((r.R-r.E)/u)+' m²');
     if(C.length>1)h+=C.map(p=>`<div class="line mut">&nbsp;&nbsp;${p.a}&nbsp;cm: ${fmt(p.E/u)} → ${fmt(p.R/u)} (${sgm((p.R-p.E)/u)})</div>`).join('');
     if(sp)h+=`<div class="line c-sinprog">• Sin programar: <b>+${fmt(sp/u)}&nbsp;m²</b></div>`}
+  const mt=motTxt(r);if(mt)h+=`<div class="line">• Motivo del cambio: <b>${esc(mt)}</b></div>`;
   return h+com;
 }
 // Programación del ERP para el Excel: cartones en 0 m² y OP sin cartón.
@@ -756,7 +791,7 @@ const cartUc=(r,e)=>r.per.filter(p=>p.R>0).map(p=>p.E?p.a+' cm':`<span class="c-
 function row(r){const e=est(r),op=r.kind==='op',was=r.est&&r.est!==e.t?`<br><span class="mut">Al guardar: ${esc(r.est)}</span>`:'';
   const dbl=esDoble(r)?(r.rev?'<br><span class="chip na">OP doble consumo · revisada</span>':`<br><span class="chip bad">OP doble consumo · requiere revisión</span> <button class="btn ghost sm adm w" data-rev="${r.id}" type="button">Revisada: válida</button>`):'';
   return`<tr class="r-${e.k}"><td>${new Date(r.ts).toLocaleString('es-MX',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}<br><span class="mut">Sem. ${esc(r.semana)}</span>${r.operador?`<br><span class="mut">${esc(r.operador)}</span>`:''}</td>
-  <td><b>${esc(r.modelo)}</b><br><span class="mut">${esc(r.op)} · ${esc(tipoReg(r))} · ${clase(r.modelo)}</span>${op&&opDesconocida(r.op)?' <span class="chip pend">revisar tipo de OP</span>':''}</td>
+  <td><b>${esc(r.modelo)}</b><br><span class="mut">${esc(r.op)} · ${esc(tipoReg(r))} · ${clase(r.modelo)}</span>${op&&opDesconocida(r.op)?' <span class="chip pend">revisar tipo de OP</span>':''}${op&&r.venc?`<br><small class="fp">Programa ${fISO(r.venc)}</small>`:''}</td>
   <td>${chipE(e)}${e.c&&e.c!=='—'?`<br><span class="mut">${esc(e.c)}</span>`:''}${was}${dbl}${e.k==='sinprog'?'<br>'+segChip(r.modelo)+` <button class="btn ghost sm adm w" data-seg="${esc(r.modelo)}" type="button">Seguimiento</button>`:''}</td>
   <td>${op?cartP(r)+' → ':esc(KINDS[r.kind])+' → '}<b>${cartUc(r,e)}</b></td>
   <td class="n">${op?fmt(r.E):'—'}</td><td class="n">${fmt(r.R+(r.Rsp||0))}</td><td class="n">${op?(fueraTol(r)?'<b>'+sgm(r.diff)+'</b>':sgm(r.diff)):'—'}${r.Rsp?`<br><span class="c-sinprog">+${fmt(r.Rsp)} sin programar</span>`:''}</td>
@@ -867,6 +902,44 @@ function resumenEjecutivo(L,s,M,A,net,abs){
   if(cr.length)I.push(at(`${pl(cr.length,'Cartón','Cartones')} que ${pl(cr.length,'requiere','requieren')} atención: `+cr.slice(0,3).map(c=>`<b>${esc(c.k)}</b> (${pct(c.R,c.E)})`).join(', ')+'.'));
   return lista(I);
 }
+// ==== 5 · Por día de la semana ====  Día = fecha de captura (igual que la semana). Lunes a viernes siempre;
+// sábado y domingo solo si hubo capturas. Solo OP del comparativo (mismo universo que la sección 4).
+const DIAS=['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+function lunesDe(w){const m=String(w).match(/^(\d{4})-S(\d\d)$/);if(!m)return null;const y=+m[1],j=new Date(y,0,4),l=new Date(y,0,4-((j.getDay()+6)%7));l.setDate(l.getDate()+(+m[2]-1)*7);return l}
+const semTxt=w=>{const l=lunesDe(w);if(!l)return w;const v=new Date(l);v.setDate(v.getDate()+4);return`${w.replace(/^\d{4}-/,'')} · ${dmy(l)} – ${dmy(v)}`};
+let diaSem='';
+function porDia(B){
+  const ws=[...new Set(B.map(r=>r.semana))].sort().reverse();if(!ws.length)return'';
+  if(!ws.includes(diaSem))diaSem=ws[0];
+  const l=lunesDe(diaSem),Rw=B.filter(r=>r.semana===diaSem),D=[];
+  for(let i=0;i<7;i++){const d=new Date(l);d.setDate(l.getDate()+i);const k=ymd(d),rs=Rw.filter(r=>ymd(new Date(r.ts))===k);
+    if(i>=5&&!rs.length)continue;
+    D.push({k:DIAS[d.getDay()],f:dmy(d).slice(0,5),n:rs.length,ft:rs.filter(fueraTol).length,cb:rs.filter(r=>coin(r)==='cambio').length,ex:rs.filter(r=>coin(r)==='extra').length,
+      net:rs.reduce((t,r)=>t+r.diff,0),abs:rs.reduce((t,r)=>t+Math.abs(r.diff),0)})}
+  const T=D.reduce((t,x)=>t+x.abs,0),CB=D.reduce((t,x)=>t+x.cb,0),mx=D.reduce((a,x)=>x.abs>a.abs?x:a,D[0]),mxA=Math.max(0.001,...D.map(x=>x.abs));
+  const top=T>0?mx:null,dl=x=>x.k.toLowerCase();
+  let con;
+  if(!top)con='Sin diferencias de consumo en esta semana.';
+  else{con=`El <b>${dl(top)}</b> concentró la mayor diferencia (${fmt(top.abs)} m², ${(top.abs/T*100).toFixed(0)} % de la semana)`;
+    const mc=D.reduce((a,x)=>x.cb>a.cb?x:a,D[0]);
+    if(CB&&top.cb)con+=` y ${top.cb} de los ${CB} cambios de cartón`;else if(CB)con+=`; más cambios de cartón: ${dl(mc)} (${mc.cb} de ${CB})`;con+='.'}
+  const sel=`<label class="mut" style="max-width:340px">Semana<select id="dsem">${ws.map(w=>`<option value="${esc(w)}"${w===diaSem?' selected':''}>${esc(semTxt(w))}</option>`).join('')}</select></label>`;
+  const bars='<div class="gb">'+D.map(x=>`<div class="${top&&x===top?'mx':''}"><div class="pr"><i class="d" style="height:${x.abs/mxA*100}%"></i></div>${x.k}<br><span class="mut">${x.f}</span><br>${fmt(x.abs)} m²</div>`).join('')+'</div>';
+  const tb=`<div class="scroll"><table class="tc"><thead><tr><th>Día</th><th>OP</th><th>Fuera de tolerancia</th><th>Cambios de cartón</th><th>Caja Extra</th><th>Dif. neta (m²)</th><th>Dif. absoluta (m²)</th></tr></thead><tbody>${
+    D.map(x=>{const b=v=>top&&x===top?`<b>${v}</b>`:v;return`<tr><td>${b(x.k+' '+x.f)}</td><td>${x.n}</td><td>${x.ft}</td><td>${x.cb}</td><td>${x.ex}</td><td>${b(x.n?sgm(x.net):'—')}</td><td>${b(x.n?fmt(x.abs):'—')}</td></tr>`}).join('')}</tbody></table></div>`;
+  return`${sel}<p style="margin:10px 0">${con}</p><p class="mut"><i class="sw" style="background:var(--warn)"></i> Diferencia absoluta del día (m²)</p>${bars}${tb}
+    <p class="mut">Día = fecha de captura. Solo OP del comparativo (sin incompletos ni consumos sin OP).</p>`;
+}
+// ==== Motivo de los cambios de cartón (al final del Análisis): no cambia ningún indicador ====
+function motivosCambio(B){
+  const C=B.filter(r=>coin(r)==='cambio');if(!C.length)return'';
+  const n={},col={exist:'var(--s-camb,#b4540a)',inc:'var(--bad)',sin:'var(--line)'};
+  C.forEach(r=>{const m=(r.mcc&&r.mcc[0]&&r.mcc[0].m)||'sin';n[m]=(n[m]||0)+1});
+  const it=[...Object.keys(MOTIVOS),'sin'].filter(k=>n[k]).map(k=>({k,t:k==='sin'?'Sin motivo registrado':MOTIVOS[k],n:n[k],p:n[k]/C.length*100}));
+  return`<section class="card sec"><h2>Motivo de los cambios de cartón <span class="mut" style="font-weight:400">(${C.length} ${C.length===1?'cambio':'cambios'})</span></h2>
+    <div class="mtb">${it.map(x=>`<i style="width:${x.p}%;background:${col[x.k]||'var(--acc)'}" title="${esc(x.t)}"></i>`).join('')}</div>
+    ${it.map(x=>`<div class="line"><i class="sw" style="background:${col[x.k]||'var(--acc)'}"></i> ${esc(x.t)}: <b>${x.n} (${x.p.toFixed(0)} %)</b></div>`).join('')}</section>`;
+}
 const lista=I=>'<ul class="rx">'+I.map(([k,t])=>`<li class="rx-${k}">${t}</li>`).join('')+'</ul>';
 function analysis(){
   weeks();const L=filt(),s=summ(L),M=modelosCalc(L),net=s.P+s.N,abs=s.P-s.N,comp=abs?(abs-Math.abs(net))/abs*100:0;
@@ -904,8 +977,9 @@ function analysis(){
     <h3>Por tipo de OP</h3>${lg2}${hbars(s.tipoOp)}<h3>Folio vs Línea</h3>${lg1}${gbars(s.clase)}
     <h3>Inclusiones por modelo (m² reales)</h3>${s.modInc.length?s.modInc.slice(0,12).map(x=>`<div class="line"><b>${fmt(x.R)} m²</b> · ${esc(x.k)} <span class="mut">(${x.n} reg.)</span></div>`).join(''):'<p class="mut">Sin inclusiones.</p>'}</details>`;
   $('#ana').innerHTML=SEC(1,'Resumen ejecutivo',r1)+SEC(2,'Indicadores principales',r2)+SEC(3,'Alertas importantes',r3)+
-    (s.B.length?SEC(4,'Consumo esperado vs real por semana',r4)+SEC(5,'Diferencias por modelo',r5)+SEC(6,'Diferencias por tipo de cartón',r6):'')+mas+
-    `<p class="mut">7 · Seguimiento de modelos → pestaña <b>Modelos</b> · 8 · Detalle completo → pestaña <b>Tablero</b></p>`;
+    (s.B.length?SEC(4,'Consumo esperado vs real por semana',r4)+SEC(5,'Por día de la semana',porDia(s.B),'sdia')+SEC(6,'Diferencias por modelo',r5)+SEC(7,'Diferencias por tipo de cartón',r6):'')+mas+motivosCambio(s.B)+
+    `<p class="mut">8 · Seguimiento de modelos → pestaña <b>Modelos</b> · 9 · Detalle completo → pestaña <b>Tablero</b></p>`;
+  const ds=$('#dsem');if(ds)ds.onchange=()=>{diaSem=ds.value;const y=window.scrollY;analysis();try{window.scrollTo(0,y)}catch(x){}};
 }
 // «Ver» en una alerta: conserva el periodo filtrado y abre la pestaña donde se revisa, ya filtrada.
 $('#ana').onclick=e=>{const g=e.target.dataset.go;if(g==null)return;const [t,v]=g.split('|');
@@ -988,7 +1062,7 @@ $('#xbtn').onclick=()=>{
     'Cartón programado':op(r)?cartP(r):'','Cartón utilizado':cartU(r),'Coincidencia de cartón':op(r)&&isA(r)?COIN[coin(r)]:'','Consumo esperado (m²)':op(r)?r3(r.E):'','Consumo real (m²)':r3(r.R+(r.Rsp||0)),'Consumo sin programar (m²)':op(r)?r3(r.Rsp||0):'','Programación ERP':op(r)?progTxt(r):'','Seguimiento ERP':est(r).k==='sinprog'?SEG[segEstado(r.modelo,r.ts)]:'','Diferencia total (m²)':op(r)?r3(r.diff):'','Variación %':op(r)?V(r.R,r.E):'',
     'Diferencia por mueble (m²)':op(r)?r3(r.dm):'','Diferencia absoluta (m²)':op(r)?r3(r.abs):'','Cajas esperadas (Cant)':op(r)?r.ce:'','Cajas capturadas':r.cr,'Mismo tipo de cartón':Y(r),
     'Semana (registro)':r.semana,'Fecha de registro':ymd(new Date(r.ts)),'Vencimiento OP':r.venc||'','Tipo de OP':op(r)?tipoReg(r):'','Estado ERP':r.estadoERP,
-    'OP doble consumo':dbl(r),'1/2 cartones confirmado por operador':r.conf12?'Sí':'','Operador':r.operador||'','Comentarios':r.com}});
+    'OP doble consumo':dbl(r),'1/2 cartones confirmado por operador':r.conf12?'Sí':'','Operador':r.operador||'','Motivo cambio de cartón':motTxt(r),'Comentarios':r.com}});
   const ps=(r,p)=>r.kind!=='op'?KINDS[r.kind]:p.sp?'Sin programar':(p.E&&!p.R)?'Sin capturar':!p.E?'Cartón no esperado':Math.abs((p.R-p.E)/p.E*100)<=tolv?'Correcto':'Con diferencia';
   const D=[...L].sort((a,b)=>String(a.op).localeCompare(b.op)).flatMap(r=>r.per.map(p=>({'Tipo de registro':KINDS[r.kind],'OP':r.op,'Tipo de OP':op(r)?tipoReg(r):'','Modelo':r.modelo,'Tipo de modelo':clase(r.modelo),'Semana':r.semana,'Estado de la OP':est(r).t,
     'Cartón (cm)':p.a,'Esperado (m²)':r3(p.E),'Real (m²)':r3(p.R),'Diferencia (m²)':r3(p.R-p.E),'Variación %':V(p.R,p.E),'Estado del cartón':ps(r,p),'Cajas esperadas (Cant)':p.ce||'','Cajas capturadas':p.cr,
