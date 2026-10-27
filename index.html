@@ -770,11 +770,15 @@ function detail(r){
     return dh('Cartón')+bul('Utilizado',usa)+dh('Por caja')+bul('Real',cj?fmt(r.R/cj)+' m²':'—')+com}
   const u=r.cant||1,prog=P.filter(pg).map(p=>p.a+' cm'+(p.z?' (0 m²)':'')).join(' + ')||'Sin cartón en el ERP';
   const C=P.filter(p=>!p.sp&&(pg(p)||p.R>0)),sp=r.Rsp||0;
+  // Esperado ÷ unidades programadas (Cant); Real ÷ unidades realmente hechas (cajas capturadas convertidas a muebles
+  // con la misma proporción cajas/mueble del ERP). Si se hicieron las mismas cajas que las programadas, uR = u.
+  const S=f=>P.filter(f).reduce((s,p)=>s+(p.cr||0),0),cH=S(p=>!p.sp&&(pg(p)||p.R>0)),cS=S(p=>p.sp);
+  const uR=r.ce?cH*u/r.ce:u,pr=(v,d)=>d>0?fmt(v/d):'—',m2=(v,d)=>d>0?fmt(v/d)+' m²':'—';
   let h=dh('Cartón')+bul('Programado',prog)+bul('Utilizado',usa)+dh('Por unidad');
-  if(!C.length&&sp)h+=bul('Esperado','sin programar en el ERP')+bul('Real',fmt(sp/u)+' m²');
-  else{h+=bul('Esperado',fmt(r.E/u)+' m²')+bul('Real',fmt(r.R/u)+' m²')+bul('Diferencia',sgm((r.R-r.E)/u)+' m²');
-    if(C.length>1)h+=C.map(p=>`<div class="line mut">&nbsp;&nbsp;${p.a}&nbsp;cm: ${fmt(p.E/u)} → ${fmt(p.R/u)} (${sgm((p.R-p.E)/u)})</div>`).join('');
-    if(sp)h+=`<div class="line c-sinprog">• Sin programar: <b>+${fmt(sp/u)}&nbsp;m²</b></div>`}
+  if(!C.length&&sp)h+=bul('Esperado','sin programar en el ERP')+bul('Real',m2(sp,cS||u));
+  else{h+=bul('Esperado',fmt(r.E/u)+' m²')+bul('Real',m2(r.R,uR))+bul('Diferencia',uR>0?sgm(r.R/uR-r.E/u)+' m²':'—');
+    if(C.length>1)h+=C.map(p=>`<div class="line mut">&nbsp;&nbsp;${p.a}&nbsp;cm: ${fmt(p.E/u)} → ${pr(p.R,uR)} (${uR>0?sgm(p.R/uR-p.E/u):'—'})</div>`).join('');
+    if(sp)h+=`<div class="line c-sinprog">• Sin programar: <b>+${m2(sp,uR||u).replace(' m²','&nbsp;m²')}</b></div>`}
   const mt=motTxt(r);if(mt)h+=`<div class="line">• Motivo del cambio: <b>${esc(mt)}</b></div>`;
   return h+com;
 }
@@ -1134,15 +1138,18 @@ function filasRegistro(L){const out=[];
     // emparejar cambios de cartón: primero con el motivo guardado (de → a), luego en orden
     (r.mcc||[]).forEach(m=>{const i=prog.findIndex(p=>+p.a===+m.de),j=usad.findIndex(p=>+p.a===+m.a);if(op&&i>=0&&j>=0)pares.push([prog.splice(i,1)[0],usad.splice(j,1)[0]])});
     while(op&&prog.length&&usad.length)pares.push([prog.shift(),usad.shift()]);
-    const fila=(b,c)=>out.push({'Fecha de registro':Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())/864e5+25569,   // fecha de Excel (sin desfase de zona horaria)
-      'Modelo':r.modelo,'OP':op?r.op:'',
+    // Real ÷ muebles realmente hechos (cajas capturadas de ese cartón convertidas a muebles con la proporción del ERP);
+    // si se hicieron las cajas programadas, da lo mismo que ÷ Cant. Caja extra (sin programado): ÷ Cant como antes.
+    const divR=(b,c)=>op&&b&&b.ce&&c.cr>0?c.cr*div/b.ce:div;
+    const fila=(b,c)=>out.push({'Fecha registrado':Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())/864e5+25569,   // fecha de Excel (sin desfase de zona horaria)
+      'OP':op?r.op:'','Modelo':r.modelo,
       'Tipo de cartón':b?b.a:'','Tipo de cartón realmente utilizado':c?c.a:'','Largo':c?largo(c.a):'','Muebles programados':op?(r.cant||''):'',
-      'Metros utilizados por mueble':b?r2(b.E/div):'','Metros realmente utilizados':c?r2(c.R/div):'',
+      'Metros utilizados por mueble':b?r2(b.E/div):'','Metros realmente utilizados':c?r2(c.R/divR(b,c)):'',
       'Mismo tipo de cartón registrado y utilizado':!c?'Pendiente':!b?'CAJA EXTRA':+b.a===+c.a?'SÍ':'NO'});
     P.filter(p=>op&&pg(p)&&p.R>0).forEach(p=>fila(p,p));pares.forEach(([b,c])=>fila(b,c));prog.forEach(p=>fila(p,null));usad.forEach(p=>fila(null,p))});
   return out}
 $('#xreg').onclick=()=>{const L=filt();if(!L.length){alert('No hay registros con el filtro actual.');return}
-  const F=filasRegistro(L),ws=XLSX.utils.json_to_sheet(F);F.forEach((_,i)=>{const c=ws['A'+(i+2)];if(c)c.z='dd/mm/yyyy'});ws['!cols']=[12,14,12,10,12,8,10,12,12,14].map(w=>({wch:w+4}));
+  const F=filasRegistro(L),ws=XLSX.utils.json_to_sheet(F);F.forEach((_,i)=>{const c=ws['A'+(i+2)];if(c)c.z='dd/mm/yyyy'});ws['!cols']=[12,12,14,10,12,8,10,12,12,14].map(w=>({wch:w+4}));
   const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Registro');XLSX.writeFile(wb,'registro-carton-'+ymd(new Date())+'.xlsx')};
 $('#bk').onclick=async()=>{try{reports=await DB.listReports();cat=await DB.getCatalog()}catch(x){dbErr(x,'No se pudo leer para el respaldo');return}
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify({v:3,reports,cat})],{type:'application/json'}));a.download='respaldo-consumo-carton-'+ymd(new Date())+'.json';a.click();
