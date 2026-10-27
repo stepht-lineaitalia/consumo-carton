@@ -98,7 +98,7 @@ details.mdl>summary{cursor:pointer;line-height:1.8}
 </head>
 <body>
 <main>
-<div class="top"><div><h1>Consumo de cartón <span class="chip ok" title="Versión técnica 5.5.1">Versión 1</span></h1><p class="sub">Captura en cm, cálculo y reportes en m².</p></div>
+<div class="top"><div><h1>Consumo de cartón <span class="chip ok" title="Versión técnica 5.6.0">Versión 1</span></h1><p class="sub">Captura en cm, cálculo y reportes en m².</p></div>
 <div class="mut" style="text-align:right"><label id="admw" style="white-space:nowrap"><input type="checkbox" id="adm" style="width:auto"> Modo admin</label><span id="ses" class="hide"></span></div></div>
 <section id="vlogin" class="card hide" style="max-width:380px;margin:24px auto">
 <h2>Iniciar sesión</h2><p class="mut" style="margin-top:0">En los equipos de planta se inicia sesión una sola vez; el equipo la recuerda.</p>
@@ -163,7 +163,7 @@ details.mdl>summary{cursor:pointer;line-height:1.8}
 <label>Estado<select id="fs"></select></label>
 <label style="flex:2 1 160px">Modelo u OP<input id="fq" placeholder="Filtrar…"></label>
 <label id="ddetw" style="flex:0 0 auto">Detalle<br><input type="checkbox" id="ddet" style="width:auto"></label><button class="btn ghost sm" id="fclr" type="button">Limpiar filtros</button></div>
-<div class="row adm" style="margin-top:10px"><button class="btn" id="xbtn">Exportar Excel (filtro actual)</button></div>
+<div class="row adm" style="margin-top:10px"><button class="btn" id="xbtn">Exportar Excel (filtro actual)</button><button class="btn ghost" id="xreg" type="button" title="Formato temporal del archivo de registro: un renglón por cartón">Excel formato registro (temporal)</button></div>
 <p class="mut" id="dsum"></p></div>
 <section id="v2" class="hide"><div class="card"><div class="leg" id="leg" aria-label="Leyenda de estados (clic para filtrar)"></div><div class="scroll"><table id="dtable"><thead><tr><th>Fecha</th><th>Modelo / OP</th><th>Estado</th><th>Cartón</th><th class="n">m² esperados</th><th class="n">m² reales</th><th class="n">Diferencia (m²)</th><th>Cajas<br><span class="mut">Cant → capt.</span></th><th class="det">Corrección</th><th class="det">Detalle</th><th class="adm"></th></tr></thead><tbody id="dbody"></tbody></table></div><p><button class="btn ghost sm hide" id="more">Mostrar más</button></p></div></section>
 <section id="v3" class="hide"><div id="ana"></div></section>
@@ -1122,6 +1122,28 @@ $('#xbtn').onclick=()=>{
   XLSX.utils.book_append_sheet(wb,MO.length?XLSX.utils.json_to_sheet(MO):XLSX.utils.aoa_to_sheet([['Sin OP completas']]),'Modelos');
   XLSX.writeFile(wb,'consumo-carton-'+ymd(new Date())+'.xlsx');
 };
+// ==== Excel «formato registro» (TEMPORAL) ====  Solo valores (sin fórmulas), un renglón por CARTÓN (valores individuales,
+// no el total de la OP). m² por mueble = m² de ese cartón ÷ Cant del ERP (Inclusión/Ingeniería: ÷ cajas capturadas).
+// Cambio de cartón: programado y usado en el mismo renglón («NO»); usado sin programar = «CAJA EXTRA»; programado sin usar = «Pendiente».
+const r2=x=>Math.round(x*100)/100;
+function filasRegistro(L){const out=[];
+  L.slice().sort((a,b)=>a.ts-b.ts).forEach(r=>{const op=r.kind==='op',P=(r.per||[]).filter(p=>pg(p)||p.R>0),d=new Date(r.ts);
+    const div=op?(r.cant||1):(r.cr||1),lines=(r.snap&&r.snap.lines)||[];
+    const largo=a=>{const v=[...new Set(lines.filter(Lx=>+Lx.a===+a&&num(Lx.l)>0&&num(Lx.n)>0).map(Lx=>num(Lx.l)))];return v.length===1?v[0]:v.join(' / ')};
+    const prog=op?P.filter(p=>pg(p)&&!(p.R>0)):[],usad=P.filter(p=>p.R>0&&(!op||!pg(p))),pares=[];
+    // emparejar cambios de cartón: primero con el motivo guardado (de → a), luego en orden
+    (r.mcc||[]).forEach(m=>{const i=prog.findIndex(p=>+p.a===+m.de),j=usad.findIndex(p=>+p.a===+m.a);if(op&&i>=0&&j>=0)pares.push([prog.splice(i,1)[0],usad.splice(j,1)[0]])});
+    while(op&&prog.length&&usad.length)pares.push([prog.shift(),usad.shift()]);
+    const fila=(b,c)=>out.push({'Fecha de registro':Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())/864e5+25569,   // fecha de Excel (sin desfase de zona horaria)
+      'Modelo':r.modelo,'OP':op?r.op:'',
+      'Tipo de cartón':b?b.a:'','Tipo de cartón realmente utilizado':c?c.a:'','Largo':c?largo(c.a):'','Muebles programados':op?(r.cant||''):'',
+      'Metros utilizados por mueble':b?r2(b.E/div):'','Metros realmente utilizados':c?r2(c.R/div):'',
+      'Mismo tipo de cartón registrado y utilizado':!c?'Pendiente':!b?'CAJA EXTRA':+b.a===+c.a?'SÍ':'NO'});
+    P.filter(p=>op&&pg(p)&&p.R>0).forEach(p=>fila(p,p));pares.forEach(([b,c])=>fila(b,c));prog.forEach(p=>fila(p,null));usad.forEach(p=>fila(null,p))});
+  return out}
+$('#xreg').onclick=()=>{const L=filt();if(!L.length){alert('No hay registros con el filtro actual.');return}
+  const F=filasRegistro(L),ws=XLSX.utils.json_to_sheet(F);F.forEach((_,i)=>{const c=ws['A'+(i+2)];if(c)c.z='dd/mm/yyyy'});ws['!cols']=[12,14,12,10,12,8,10,12,12,14].map(w=>({wch:w+4}));
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Registro');XLSX.writeFile(wb,'registro-carton-'+ymd(new Date())+'.xlsx')};
 $('#bk').onclick=async()=>{try{reports=await DB.listReports();cat=await DB.getCatalog()}catch(x){dbErr(x,'No se pudo leer para el respaldo');return}
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify({v:3,reports,cat})],{type:'application/json'}));a.download='respaldo-consumo-carton-'+ymd(new Date())+'.json';a.click();
   const rp={ts:Date.now(),auto:false,por:quien()};try{await DB.saveSettings({respaldo:rp});cfg.respaldo=rp}catch(x){}showRespaldo()};
