@@ -52,6 +52,7 @@ tr.r-pend td:first-child{box-shadow:inset 4px 0 var(--line)}tr.r-err td:first-ch
 .leg{display:flex;flex-wrap:wrap;gap:4px 12px;margin:2px 0 4px}.leg button{background:none;border:0;padding:2px 0;cursor:pointer;font-size:12px;color:var(--mut);display:inline-flex;align-items:center;gap:5px}
 .leg button i{width:10px;height:10px;border-radius:50%;display:inline-block}.leg button b{color:var(--ink);font-weight:600}.leg button.on{text-decoration:underline;color:var(--ink)}
 td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.pl{font-size:13px;line-height:1.6}.pl .pc{color:var(--mut);margin-right:10px;font-size:12px}.pl .np{color:var(--mut);font-size:12px}.pl.c-otro{color:var(--s-camb,#b4540a);font-weight:600}
 ul.rx{list-style:none;margin:0;padding:0}ul.rx li{position:relative;padding:3px 0 3px 26px;font-size:15px}
 ul.rx li::before{position:absolute;left:0;top:3px;width:18px;text-align:center;font-weight:700}
 .rx-ok::before{content:"✓";color:var(--s-ok)}.rx-at::before{content:"⚠";color:var(--s-camb)}.rx-in::before{content:"•";color:var(--mut)}
@@ -79,7 +80,7 @@ details.mdl>summary{cursor:pointer;line-height:1.8}
 .top{display:flex;justify-content:space-between;align-items:start;gap:10px}
 .line{margin:3px 0;font-size:13px}
 .mot{margin-top:10px;padding:10px;border:1px dashed var(--s-camb,#b4540a);border-radius:8px}.mot.err{border:2px solid var(--bad);background:var(--badbg)}.mot .row{margin-top:6px}.mot .btn{flex:1 1 160px}
-.card.hl{outline:3px solid var(--warn);outline-offset:2px}.fp{color:var(--mut);font-size:12px}
+.card.hl{outline:3px solid var(--warn);outline-offset:2px}.fp{color:var(--mut);font-size:12px}td.ccor{min-width:96px}td.ccor .chip{white-space:nowrap}td.ccor .btn{white-space:normal;line-height:1.2}
 #dlgf{border:0;border-radius:14px;background:var(--card);color:var(--ink);width:min(520px,92vw);padding:24px;text-align:center}#dlgf h2{font-size:26px;margin:0 0 18px;color:var(--bad)}#dlgf .btn{font-size:18px;padding:14px 22px;width:100%}#dlgf a{display:inline-block;margin-top:14px;color:var(--mut);font-size:14px;cursor:pointer}.tot{font-weight:600;font-size:14px}
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:12px}
 .kpi{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px}.kpi b{display:block;font-size:19px}
@@ -97,7 +98,7 @@ details.mdl>summary{cursor:pointer;line-height:1.8}
 </head>
 <body>
 <main>
-<div class="top"><div><h1>Consumo de cartón <span class="chip ok" title="Versión técnica 5.2.0">Versión 1</span></h1><p class="sub">Captura en cm, cálculo y reportes en m².</p></div>
+<div class="top"><div><h1>Consumo de cartón <span class="chip ok" title="Versión técnica 5.5.1">Versión 1</span></h1><p class="sub">Captura en cm, cálculo y reportes en m².</p></div>
 <div class="mut" style="text-align:right"><label id="admw" style="white-space:nowrap"><input type="checkbox" id="adm" style="width:auto"> Modo admin</label><span id="ses" class="hide"></span></div></div>
 <section id="vlogin" class="card hide" style="max-width:380px;margin:24px auto">
 <h2>Iniciar sesión</h2><p class="mut" style="margin-top:0">En los equipos de planta se inicia sesión una sola vez; el equipo la recuerda.</p>
@@ -119,7 +120,7 @@ details.mdl>summary{cursor:pointer;line-height:1.8}
 <details class="card adm w" open>
 <summary><b>Configuración (admin)</b> <span class="mut" id="catinfo"></span></summary>
 <p class="mut">Sube el Excel «Consumo Extras» (hoja <b>Data</b>). Solo entran las líneas con código de cartón del catálogo; CompEsperados = m² esperados de cada cartón y Cant = cajas esperadas. Las OP nuevas se agregan y las existentes se actualizan.</p>
-<input type="file" id="file" accept=".xlsx,.xls,.csv"><p class="mut" id="filemsg"></p>
+<input type="file" id="file" accept=".xlsx,.xls,.csv"><p class="mut" id="filemsg"></p><p class="mut" id="bkinfo" style="margin:4px 0"></p>
 <div class="row"><label>Tolerancia (±% del esperado)<input id="tol" type="number" min="0"></label><button class="btn ghost sm loc" id="cpw">Cambiar contraseña</button><button class="btn ghost sm" id="bk">Respaldo (JSON)</button><label class="btn ghost sm" style="flex:0 0 auto;margin:0">Importar respaldo<input type="file" id="bki" accept=".json" class="hide"></label></div>
 <details class="box"><summary><b>Catálogo de cartones</b> <span class="mut">(código del componente en el ERP → ancho)</span></summary>
 <div id="cartcfg" style="margin-top:6px"></div>
@@ -164,7 +165,7 @@ details.mdl>summary{cursor:pointer;line-height:1.8}
 <label id="ddetw" style="flex:0 0 auto">Detalle<br><input type="checkbox" id="ddet" style="width:auto"></label><button class="btn ghost sm" id="fclr" type="button">Limpiar filtros</button></div>
 <div class="row adm" style="margin-top:10px"><button class="btn" id="xbtn">Exportar Excel (filtro actual)</button></div>
 <p class="mut" id="dsum"></p></div>
-<section id="v2" class="hide"><div class="card"><div class="leg" id="leg" aria-label="Leyenda de estados (clic para filtrar)"></div><div class="scroll"><table id="dtable"><thead><tr><th>Fecha</th><th>Modelo / OP</th><th>Estado</th><th>Cartón prog. → usado</th><th class="n">m² esperados</th><th class="n">m² reales</th><th class="n">Diferencia (m²)</th><th>Cajas<br><span class="mut">Cant → capt.</span></th><th class="det">Detalle</th><th class="adm"></th></tr></thead><tbody id="dbody"></tbody></table></div><p><button class="btn ghost sm hide" id="more">Mostrar más</button></p></div></section>
+<section id="v2" class="hide"><div class="card"><div class="leg" id="leg" aria-label="Leyenda de estados (clic para filtrar)"></div><div class="scroll"><table id="dtable"><thead><tr><th>Fecha</th><th>Modelo / OP</th><th>Estado</th><th>Cartón</th><th class="n">m² esperados</th><th class="n">m² reales</th><th class="n">Diferencia (m²)</th><th>Cajas<br><span class="mut">Cant → capt.</span></th><th class="det">Corrección</th><th class="det">Detalle</th><th class="adm"></th></tr></thead><tbody id="dbody"></tbody></table></div><p><button class="btn ghost sm hide" id="more">Mostrar más</button></p></div></section>
 <section id="v3" class="hide"><div id="ana"></div></section>
 <section id="v4" class="hide">
 <section class="card sec"><h2><span class="sn">7</span> Seguimiento de modelos</h2>
@@ -299,7 +300,8 @@ function mezclarCfg(t,c){c=c||{};const d=JSON.parse(JSON.stringify(DEF_CFG));
     prefijos:okMap(c.prefijos,v=>typeof v==='string'&&v.trim())?c.prefijos:d.prefijos,
     excluir:Array.isArray(c.excluir)?c.excluir.map(String):d.excluir,
     modelosExc:c.modelosExc&&typeof c.modelosExc==='object'&&!Array.isArray(c.modelosExc)?c.modelosExc:d.modelosExc,
-    seguimiento:c.seguimiento&&typeof c.seguimiento==='object'&&!Array.isArray(c.seguimiento)?c.seguimiento:{}}}
+    seguimiento:c.seguimiento&&typeof c.seguimiento==='object'&&!Array.isArray(c.seguimiento)?c.seguimiento:{},
+    respaldo:c.respaldo&&fin(c.respaldo.ts)?c.respaldo:null}}
 const LocalDB=(()=>{
   const K={rep:'cc_reports3',bad:'cc_reports3_corrupt',cat:'cc_cat3',tol:'cc_tol',cfg:'cc_cfg',auth:'cc_auth',opr:'cc_operadores'};
   let corruptWarned=false;
@@ -341,7 +343,7 @@ const LocalDB=(()=>{
     },
     async getSettings(){return mezclarCfg(get(K.tol,DEF_CFG.tol),get(K.cfg,{})||{})},
     async saveSettings(s){if(!s)return;if('tol' in s)put(K.tol,s.tol);
-      const c=get(K.cfg,{})||{};let ch=false;['cartones','prefijos','excluir','modelosExc','seguimiento'].forEach(k=>{if(k in s){c[k]=s[k];ch=true}});if(ch)put(K.cfg,c)},
+      const c=get(K.cfg,{})||{};let ch=false;['cartones','prefijos','excluir','modelosExc','seguimiento','respaldo'].forEach(k=>{if(k in s){c[k]=s[k];ch=true}});if(ch)put(K.cfg,c)},
     async listOperadores(){const l=get(K.opr,[]);return Array.isArray(l)?l.map(String):[]},
     async saveOperadores(l){put(K.opr,l)},
     async getAuth(){return get(K.auth,null)},
@@ -388,7 +390,7 @@ const CloudDB=sb=>{
       for(let i=0;i<rows.length;i+=500)await run(sb.from('ops').upsert(rows.slice(i,i+500),{onConflict:'op',ignoreDuplicates:!(o&&o.overwrite)}));
       return api.getCatalog()},
     async getSettings(){const rows=await run(sb.from('config').select('k,v'));const c={};(rows||[]).forEach(w=>c[w.k]=w.v);return mezclarCfg(c.tol,c)},
-    async saveSettings(s){if(!s)return;const rows=['tol','cartones','prefijos','excluir','modelosExc','seguimiento'].filter(k=>k in s).map(k=>({k,v:s[k],updated_at:new Date().toISOString()}));
+    async saveSettings(s){if(!s)return;const rows=['tol','cartones','prefijos','excluir','modelosExc','seguimiento','respaldo'].filter(k=>k in s).map(k=>({k,v:s[k],updated_at:new Date().toISOString()}));
       if(rows.length)await run(sb.from('config').upsert(rows,{onConflict:'k'}))},
     async listOperadores(){return(await run(sb.from('operadores').select('nombre,activo').order('nombre'))||[]).filter(x=>x.activo).map(x=>x.nombre)},
     async saveOperadores(lista){const ya=await run(sb.from('operadores').select('nombre,activo'))||[],L=new Set(lista);
@@ -690,7 +692,7 @@ async function guardar(sinFalta){
     const rep={id:old?old.id:null,ts,kind:W.kind,tipoOp:tipoReg(W),op:W.op||'—',modelo:W.modelo,
       tipoModelo:tipoModelo(W.modelo,W.desc),estadoERP:W.estado||'',semana:isoWeek(new Date(ts)),venc:W.kind==='op'?(W.fecha||''):'',cant:W.cant,
       ce:c.ce,cr:c.cr,E:c.E,R:c.R,Rsp:c.Rsp,diff:c.diff,dm:c.dm,abs:c.abs,mismo:c.mismo,fx:c.fx,st:c.st,est:c.est,com:(W.com||'').trim(),
-      conf12:du.length?du:(old&&old.conf12)||null,rev:old?!!old.rev:false,
+      conf12:du.length?du:(old&&old.conf12)||null,rev:old?!!old.rev:false,...(old&&old.corr?{corr:old.corr}:{}),
       operador:old?(old.operador||''):(operador||''),version:old?W.ver:undefined,
       mcc:W.lines.filter(L=>cambiado(L)&&capt(L)&&L.m).map(L=>({de:+L.o,a:+L.a,m:L.m})),
       per:c.per.map(p=>({a:p.a,E:p.E,R:p.R,ce:p.ce,cr:p.cr,st:p.st,prog:p.prog,z:p.z,...(p.sp?{sp:true,spm:p.spm}:{})})),
@@ -749,7 +751,7 @@ function weeks(){const R=vis();
   opts('#fo',[...new Set(R.filter(r=>r.kind==='op').map(tipoReg))].sort(),'Todos')}
 // Filtro de Estado: «con diferencia (todas)», cada estado de ESTADOS y la bandera de OP doble consumo.
 const SF={bad:e=>e.cls==='bad',...Object.fromEntries(ESTADOS.map(x=>[x.k,e=>e.k===x.k]))};
-$('#fs').innerHTML='<option value="">Todos</option><option value="bad">Con diferencia (todas)</option>'+ESTADOS.map(x=>`<option value="${x.k}">${esc(x.t)}</option>`).join('')+'<option value="doble">OP doble consumo (por revisar)</option>';
+$('#fs').innerHTML='<option value="">Todos</option><option value="bad">Con diferencia (todas)</option>'+ESTADOS.map(x=>`<option value="${x.k}">${esc(x.t)}</option>`).join('')+'<option value="doble">OP doble consumo (por revisar)</option><option value="pcorr">Pendientes de corregir</option>';
 const FSEL=['#ff','#ft','#fw','#fv','#fk','#fo','#fc','#fs','#fq'];
 const fAct=()=>FSEL.filter(x=>$(x).value.trim()).length;
 const cnt=L=>{const a=fAct();return`${L.length} de ${vis().length} guardados`+(a?` <b style="color:var(--warn)">⚠ ${a} filtro${a>1?'s':''} activo${a>1?'s':''}</b>`:'')+(DB.repaired?` · <span style="color:var(--warn)">${DB.repaired} reparado${DB.repaired>1?'s':''} al leer</span>`:'')};
@@ -757,7 +759,7 @@ function filt(){
   idxDobles();
   const f=$('#ff').value,t=$('#ft').value,w=$('#fw').value,v=$('#fv').value,k=$('#fk').value,o=$('#fo').value,c=$('#fc').value,fs=$('#fs').value,sp=SF[fs],q=$('#fq').value.trim().toLowerCase();
   const dOps=fs==='doble'?new Set(vis().filter(doblePend).map(r=>r.op)):null;   // muestra TODOS los reportes de la OP para comparar
-  return vis().filter(r=>{const d=ymd(new Date(r.ts));return(!f||d>=f)&&(!t||d<=t)&&(!w||r.semana===w)&&(!v||vencW(r)===v)&&(!k||r.kind===k)&&(!o||(r.kind==='op'&&tipoReg(r)===o))&&(!c||clase(r.modelo)===c)&&(!dOps||(r.kind==='op'&&dOps.has(r.op)))&&(!sp||sp(est(r)))&&(!q||[r.modelo,r.op,tipoReg(r),modeloPrincipal(r.modelo)].join(' ').toLowerCase().includes(q))}).sort((a,b)=>b.ts-a.ts);
+  return vis().filter(r=>{const d=ymd(new Date(r.ts));return(!f||d>=f)&&(!t||d<=t)&&(!w||r.semana===w)&&(!v||vencW(r)===v)&&(!k||r.kind===k)&&(!o||(r.kind==='op'&&tipoReg(r)===o))&&(!c||clase(r.modelo)===c)&&(!dOps||(r.kind==='op'&&dOps.has(r.op)))&&(fs!=='pcorr'||(porCorregir(r)&&!r.corr))&&(!sp||sp(est(r)))&&(!q||[r.modelo,r.op,tipoReg(r),modeloPrincipal(r.modelo)].join(' ').toLowerCase().includes(q))}).sort((a,b)=>b.ts-a.ts);
 }
 // Detalle del Tablero: consumo POR UNIDAD (mueble de la OP = Cant del ERP). Solo presenta; no cambia ningún cálculo.
 const bul=(t,v)=>`<div class="line">• ${t}: <b>${v.replace(/ (m²|cm)/g,'&nbsp;$1')}</b></div>`,dh=t=>`<div class="dh">${t}</div>`;
@@ -785,17 +787,39 @@ function cajasTxt(r){const P=r.per||[],S=f=>P.filter(f).reduce((s,p)=>s+p.cr,0),
   if(cX&&coin(r)==='cambio')return r.ce+' → '+(cE+cX)+' <span class="mut">(cambio de cartón)</span>'+sp;
   return r.ce+' → '+cE+(cX?` <b>+ ${cX} extra</b>`:'')+sp}
 let cur=1,lim=100;const refresh=()=>cur===3?analysis():cur===4?modelosView():board();
+// «Corregido» (marca de administración en el Tablero, columna visible solo con Detalle): para registros que no son
+// «Correcto». No cambia estados ni indicadores; solo reduce las alertas pendientes (sección 3) y alimenta el filtro.
+const porCorregir=r=>{const c=est(r).cls;return c==='bad'||c==='pend'};
+function celdaCorr(r){if(!porCorregir(r))return'';
+  if(r.corr)return`<span class="chip ok">✓ Corregido</span><br><span class="mut">${esc(r.corr.por||'')} · ${dmy(r.corr.ts)}</span><br><a href="#" class="adm w" data-uncorr="${r.id}">Deshacer</a>`;
+  return`<button class="btn ghost sm adm w" data-corr="${r.id}" type="button">Marcar corregido</button>`}
+// Columna «Cartón»: un cartón por línea (alineado con los m² de cada cartón). En naranja el usado que no era el
+// programado; en morado el sin programar. El cambio de cartón (programado → usado) se ve en el estado y en el Detalle.
+function colCarton(r){
+  const P=r.kind==='op'?porCarton(r):(r.per||[]).filter(p=>p.R>0);if(!P.length)return'—';
+  return P.map(p=>`<div class="pl${p.sp?' c-sinprog':r.kind==='op'&&!pg(p)?' c-otro':''}">${p.a}&nbsp;cm${p.z?' <span class="np">(0 m²)</span>':''}</div>`).join('')}
+// OP con 2 o más cartones: una línea por cartón dentro de las mismas columnas (esperado, real, diferencia de CADA cartón).
+// Sin total ni iconos; solo el cartón con mayor diferencia fuera de tolerancia va en negritas y color. Solo presentación.
+const porCarton=r=>(r.per||[]).filter(p=>pg(p)||p.R>0);
+function celdasCarton(r){const P=porCarton(r);
+  const cand=P.filter(p=>pg(p)&&p.E>0&&p.R>0&&!p.sp&&Math.abs((p.R-p.E)/p.E*100)>tolv);
+  const top=cand.reduce((a,p)=>!a||Math.abs(p.R-p.E)>Math.abs(a.R-a.E)?p:a,null);
+  const L=(p,v)=>`<div class="pl${p.sp?' c-sinprog':''}">${v}</div>`;
+  const e=P.map(p=>L(p,pg(p)?fmt(p.E):'—')).join('');
+  const re=P.map(p=>L(p,p.R>0?fmt(p.R):'—')).join('');
+  const d=P.map(p=>L(p,p.sp?'<span class="np">sin programar</span>':!pg(p)?'<span class="np">no programado</span>':!(p.R>0)?'<span class="np">no usado</span>':
+    p===top?`<b class="${p.R>p.E?'pos':'neg'}">${sgm(p.R-p.E)}</b>`:sgm(p.R-p.E))).join('');
+  return`<td class="n">${e}</td><td class="n">${re}</td><td class="n">${d}</td>`}
 // Fila del Tablero (8 · detalle): estado junto al modelo, m² en columnas separadas, borde y cartón distinto con el color del estado.
 const fueraTol=r=>r.E&&Math.abs((r.R-r.E)/r.E*100)>tolv;
-const cartUc=(r,e)=>r.per.filter(p=>p.R>0).map(p=>p.E?p.a+' cm':`<span class="c-${e.k}">${p.a} cm</span>`).join(' + ')||'—';
 function row(r){const e=est(r),op=r.kind==='op',was=r.est&&r.est!==e.t?`<br><span class="mut">Al guardar: ${esc(r.est)}</span>`:'';
   const dbl=esDoble(r)?(r.rev?'<br><span class="chip na">OP doble consumo · revisada</span>':`<br><span class="chip bad">OP doble consumo · requiere revisión</span> <button class="btn ghost sm adm w" data-rev="${r.id}" type="button">Revisada: válida</button>`):'';
   return`<tr class="r-${e.k}"><td>${new Date(r.ts).toLocaleString('es-MX',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}<br><span class="mut">Sem. ${esc(r.semana)}</span>${r.operador?`<br><span class="mut">${esc(r.operador)}</span>`:''}</td>
   <td><b>${esc(r.modelo)}</b><br><span class="mut">${esc(r.op)} · ${esc(tipoReg(r))} · ${clase(r.modelo)}</span>${op&&opDesconocida(r.op)?' <span class="chip pend">revisar tipo de OP</span>':''}${op&&r.venc?`<br><small class="fp">Programa ${fISO(r.venc)}</small>`:''}</td>
   <td>${chipE(e)}${e.c&&e.c!=='—'?`<br><span class="mut">${esc(e.c)}</span>`:''}${was}${dbl}${e.k==='sinprog'?'<br>'+segChip(r.modelo)+` <button class="btn ghost sm adm w" data-seg="${esc(r.modelo)}" type="button">Seguimiento</button>`:''}</td>
-  <td>${op?cartP(r)+' → ':esc(KINDS[r.kind])+' → '}<b>${cartUc(r,e)}</b></td>
-  <td class="n">${op?fmt(r.E):'—'}</td><td class="n">${fmt(r.R+(r.Rsp||0))}</td><td class="n">${op?(fueraTol(r)?'<b>'+sgm(r.diff)+'</b>':sgm(r.diff)):'—'}${r.Rsp?`<br><span class="c-sinprog">+${fmt(r.Rsp)} sin programar</span>`:''}</td>
-  <td>${op?cajasTxt(r):r.cr}</td><td class="det">${detail(r)}</td>
+  <td>${colCarton(r)}</td>
+  ${op&&porCarton(r).length>1?celdasCarton(r):`<td class="n">${op?fmt(r.E):'—'}</td><td class="n">${fmt(r.R+(r.Rsp||0))}</td><td class="n">${op?(fueraTol(r)?'<b>'+sgm(r.diff)+'</b>':sgm(r.diff)):'—'}${r.Rsp?`<br><span class="c-sinprog">+${fmt(r.Rsp)} sin programar</span>`:''}</td>`}
+  <td>${op?cajasTxt(r):r.cr}</td><td class="det ccor">${celdaCorr(r)}</td><td class="det">${detail(r)}</td>
   <td class="adm"><span class="w"><button class="btn ghost sm" data-ed="${r.id}">Corregir</button> <button class="btn ghost sm" data-del="${r.id}">Borrar</button></span></td></tr>`}
 // Leyenda: punto de color + nombre corto + cuántos hay con los filtros actuales. Clic = filtrar por ese estado (otro clic lo quita).
 function leyenda(L){const n={};L.forEach(r=>{const k=est(r).k;n[k]=(n[k]||0)+1});const f=$('#fs').value;
@@ -806,8 +830,8 @@ function board(){
   const n=x=>L.filter(r=>est(r).cls===x).length,nd=L.filter(doblePend).length;
   // los conteos por estado están en la leyenda; aquí solo el total, filtros y lo que requiere atención
   leyenda(L);
-  $('#dsum').innerHTML=`${cnt(L)}`+(nd?` · <b style="color:var(--bad)">${nd} OP doble consumo por revisar</b>`:'')+(n('err')?` · <b style="color:var(--bad)">${n('err')} ilegibles</b>`:'')+(L.length>lim?` · mostrando los primeros ${lim}`:'');
-  $('#dbody').innerHTML=L.length?L.slice(0,lim).map(r=>{try{return row(r)}catch(x){return`<tr class="r-err"><td colspan="9" style="color:var(--bad)">⚠ Registro ilegible (id ${esc(r.id)}): ${esc(x.message)}</td><td class="adm"><button class="btn ghost sm w" data-del="${r.id}">Borrar</button></td></tr>`}}).join(''):`<tr><td colspan="10" class="mut">${reports.length&&fAct()?'Hay '+reports.length+' reporte(s) guardado(s), pero los filtros activos los ocultan. Usa «Limpiar filtros».':'No hay registros guardados.'}</td></tr>`;
+  $('#dsum').innerHTML=`${cnt(L)}`+(nd?` · <a href="#" id="vdoble" style="color:var(--bad);font-weight:700" title="Ver solo esas OP, incluida su primera captura">${nd} OP doble consumo por revisar</a>`:'')+(n('err')?` · <b style="color:var(--bad)">${n('err')} ilegibles</b>`:'')+(L.length>lim?` · mostrando los primeros ${lim}`:'');
+  $('#dbody').innerHTML=L.length?L.slice(0,lim).map(r=>{try{return row(r)}catch(x){return`<tr class="r-err"><td colspan="10" style="color:var(--bad)">⚠ Registro ilegible (id ${esc(r.id)}): ${esc(x.message)}</td><td class="adm"><button class="btn ghost sm w" data-del="${r.id}">Borrar</button></td></tr>`}}).join(''):`<tr><td colspan="11" class="mut">${reports.length&&fAct()?'Hay '+reports.length+' reporte(s) guardado(s), pero los filtros activos los ocultan. Usa «Limpiar filtros».':'No hay registros guardados.'}</td></tr>`;
 }
 const hbars=a=>{const mx=Math.max(0.001,...a.map(x=>Math.max(x.P,-x.N)));return a.map(x=>`<div class="hb"><span title="${esc(x.k)}">${esc(x.k)}</span><div class="tr"><div class="l"><i class="nb" style="width:${-x.N/mx*100}%"></i></div><div class="r"><i class="pb" style="width:${x.P/mx*100}%"></i></div></div><span><b>${sgm(x.R-x.E)} m²</b> · ${pct(x.R,x.E)}<br><span class="mut">abs ${fmt(x.P-x.N)} · ${x.n} reg.</span></span></div>`).join('')||'<p class="mut">Sin datos.</p>'};
 const gbars=a=>{const mx=Math.max(0.001,...a.map(x=>Math.max(x.E,x.R)));return'<div class="gb">'+a.map(x=>`<div><div class="pr"><i class="e" style="height:${x.E/mx*100}%"></i><i class="re" style="height:${x.R/mx*100}%"></i></div>${esc(x.k)}<br>${fmt(x.E)} / ${fmt(x.R)}<br><span class="mut">${pct(x.R,x.E)}</span></div>`).join('')+'</div>'};
@@ -823,11 +847,15 @@ function alertas(L,s,M){
   if(ce.length)A.push(['st-ok',`✓ ${ce.length} modelo(s) con consumo sin programar ya <b>corregidos en origen</b>: ${ce.slice(0,6).map(g=>esc(g.modelo)).join(', ')}.`,'']);
   if(nd.length)A.push(['st-cambcons',`<b>${ops.size} OP con doble consumo</b> por revisar (${nd.length} captura(s) adicional(es)).`,'2|doble']);
   if(M.fuera)A.push(['st-camb',`<b>${M.fuera} variante(s) fuera del patrón</b> en ${M.revisar} modelo(s) principal(es).`,'4|']);
-  const nk=k=>s.B.filter(r=>est(r).k===k).length,cc=nk('cambcons'),cb=nk('camb'),ex=nk('extra');
-  if(cc)A.push(['st-cambcons',`<b>${cc} OP con cambio de cartón y diferencia de consumo.</b>`,'2|cambcons']);
-  if(ex)A.push(['st-extra',`<b>${ex} OP con Caja Extra.</b>`,'2|extra']);
-  if(cb)A.push(['st-camb',`<b>${cb} OP con cambio de cartón</b> (m² dentro de tolerancia).`,'2|camb']);
-  if(s.inc.length)A.push(['st-pend',`<b>${s.inc.length} registro(s) incompleto(s):</b> falta capturar un cartón programado.`,'2|pend']);
+  // Lo marcado «Corregido» en el Tablero ya no cuenta como pendiente: la alerta muestra lo que falta y cuántos ya se corrigieron.
+  const nk=k=>s.B.filter(r=>est(r).k===k);
+  const alC=(cls,L,txt,cola,go)=>{if(!L.length)return;const p=L.filter(r=>!r.corr).length,c=L.length-p;
+    if(p)A.push([cls,`<b>${txt(p)}</b>${cola}`+(c?` <span class="mut">(${c} ya ${c>1?'corregidos':'corregido'})</span>`:''),go]);
+    else A.push(['st-ok',`✓ ${txt(L.length)}: ${L.length>1?'todos corregidos':'corregido'}.`,''])};
+  alC('st-cambcons',nk('cambcons'),n=>`${n} OP con cambio de cartón y diferencia de consumo`,'.','2|cambcons');
+  alC('st-extra',nk('extra'),n=>`${n} OP con Caja Extra`,'.','2|extra');
+  alC('st-camb',nk('camb'),n=>`${n} OP con cambio de cartón`,' (m² dentro de tolerancia).','2|camb');
+  alC('st-pend',s.inc,n=>`${n} registro(s) incompleto(s)`,': falta capturar un cartón programado.','2|pend');
   const ot=L.filter(r=>r.kind==='op'&&opDesconocida(r.op)).length;if(ot)A.push(['st-pend',`<b>${ot} registro(s) con tipo de OP no reconocido.</b>`,'2|q:otro (']);
   const cf=L.filter(r=>r.conf12).length;if(cf)A.push(['st-sinop',`${cf} captura(s) donde el operador confirmó 1 o 2 cartones con un resultado cercano al doble o a la mitad.`,'']);
   return A;
@@ -1041,10 +1069,15 @@ $('#adm').onchange=async e=>{const on=e.target.checked;
     if(!ok){e.target.checked=false;return}}
   document.body.classList.toggle('admin',on);if(!on)tab(1)};
 $('#cpw').onclick=()=>ask('create');
+$('#dsum').addEventListener('click',e=>{if(e.target.id!=='vdoble')return;e.preventDefault();$('#fs').value=$('#fs').value==='doble'?'':'doble';lim=100;refresh()});
 $('#dbody').onclick=async e=>{
   const d=e.target.dataset;
   if(d.del&&confirm('¿Borrar este reporte?')){if(String(editId)===d.del){editId=null}
     try{await DB.deleteReport(d.del)}catch(x){dbErr(x,'No se pudo borrar')}
+    await reload();board()}
+  if(d.corr||d.uncorr){e.preventDefault();const id=d.corr||d.uncorr,r=reports.find(x=>String(x.id)===id);if(!r)return;
+    const n={...r};if(d.corr)n.corr={ts:Date.now(),por:quien()};else delete n.corr;
+    try{await DB.saveReport(n)}catch(x){dbErr(x,'No se pudo guardar la corrección')}
     await reload();board()}
   if(d.rev){const r=reports.find(x=>String(x.id)===d.rev);if(!r)return;
     try{await DB.saveReport({...r,rev:true})}catch(x){dbErr(x,'No se pudo marcar como revisada')}
@@ -1090,7 +1123,14 @@ $('#xbtn').onclick=()=>{
   XLSX.writeFile(wb,'consumo-carton-'+ymd(new Date())+'.xlsx');
 };
 $('#bk').onclick=async()=>{try{reports=await DB.listReports();cat=await DB.getCatalog()}catch(x){dbErr(x,'No se pudo leer para el respaldo');return}
-  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify({v:3,reports,cat})],{type:'application/json'}));a.download='respaldo-consumo-carton-'+ymd(new Date())+'.json';a.click()};
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify({v:3,reports,cat})],{type:'application/json'}));a.download='respaldo-consumo-carton-'+ymd(new Date())+'.json';a.click();
+  const rp={ts:Date.now(),auto:false,por:quien()};try{await DB.saveSettings({respaldo:rp});cfg.respaldo=rp}catch(x){}showRespaldo()};
+// Último respaldo (automático o manual): en rojo si pasan más de 2 días. El robot diario lo anota con marcar_respaldo().
+function showRespaldo(){const r=cfg.respaldo,e=$('#bkinfo');if(!e)return;
+  if(!r){e.innerHTML='<b style="color:var(--bad)">⚠ No hay respaldos registrados.</b> Descarga uno con «Respaldo (JSON)».';return}
+  const d=Math.floor((Date.now()-r.ts)/864e5),h=new Date(r.ts).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
+  const cuando=d<=0?'hoy':d===1?'ayer':`hace ${d} días`,tx=`Último respaldo: ${cuando} (${dmy(r.ts)} ${h}, ${r.auto?'automático':'manual'})`;
+  e.innerHTML=d>2?`<b style="color:var(--bad)">⚠ ${tx}.</b> Revisa el respaldo automático o descarga uno con «Respaldo (JSON)».`:`<span style="color:var(--ok)">✓</span> ${tx}`}
 $('#bki').onchange=async e=>{const f=e.target.files[0];if(!f)return;
   try{const d=JSON.parse(await f.text()),r=await DB.importReports(Array.isArray(d.reports)?d.reports:[]);
     cat=await DB.upsertOps(d.cat||{},{overwrite:false});await reload();showCat();
@@ -1142,9 +1182,9 @@ $('#saveopr').onclick=async()=>{const L=[...new Set($('#oprcfg').value.split('\n
 async function cargarApp(){
   aplicarRol();stat('Cargando datos…');
   try{const [st,c,r,o]=await Promise.all([DB.getSettings(),DB.getCatalog(),DB.listReports(),DB.listOperadores()]);
-    tolv=st.tol;cfg={tol:st.tol,cartones:st.cartones||cfg.cartones,prefijos:st.prefijos||cfg.prefijos,excluir:st.excluir||cfg.excluir,modelosExc:st.modelosExc||cfg.modelosExc,seguimiento:st.seguimiento||{}};cat=c;reports=r;operadores=o||[];stat('')}
+    tolv=st.tol;cfg={tol:st.tol,cartones:st.cartones||cfg.cartones,prefijos:st.prefijos||cfg.prefijos,excluir:st.excluir||cfg.excluir,modelosExc:st.modelosExc||cfg.modelosExc,seguimiento:st.seguimiento||{},respaldo:st.respaldo||null};cat=c;reports=r;operadores=o||[];stat('')}
   catch(e){dbErr(e,'No se pudieron cargar los datos')}
-  $('#tol').value=tolv;$('#oprcfg').value=operadores.join('\n');showCat();showCfg();showOperador();misHoy();
+  $('#tol').value=tolv;$('#oprcfg').value=operadores.join('\n');showRespaldo();showCat();showCfg();showOperador();misHoy();
   DB.onChange(async()=>{await reload();if(cur!==1)refresh();else misHoy()});
   if(document.body.classList.contains('ro'))tab(3);
 }
