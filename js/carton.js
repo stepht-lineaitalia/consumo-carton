@@ -211,7 +211,9 @@ const CloudDB=sb=>{
 };
 // La app usa la nube si config.js trae la URL y la clave pública del proyecto; si no, trabaja en el navegador (LocalDB).
 const NUBE=window.CC_CONFIG&&CC_CONFIG.supabaseUrl&&CC_CONFIG.supabaseAnonKey&&window.supabase;
-const DB=NUBE?CloudDB(supabase.createClient(CC_CONFIG.supabaseUrl,CC_CONFIG.supabaseAnonKey,{auth:{persistSession:true,autoRefreshToken:true}})):LocalDB;
+// Un solo cliente de Supabase para toda la app (Cartón y Hojas single comparten la sesión).
+const SBC=NUBE?supabase.createClient(CC_CONFIG.supabaseUrl,CC_CONFIG.supabaseAnonKey,{auth:{persistSession:true,autoRefreshToken:true}}):null;
+const DB=NUBE?CloudDB(SBC):LocalDB;
 DB.warn=m=>alert(m);
 // Preferencias de ESTE equipo (no son datos del negocio): p. ej. el operador elegido. Nunca fallan.
 const PREF={get(k){try{return localStorage.getItem('cc_pref_'+k)||''}catch(e){return''}},set(k,v){try{v?localStorage.setItem('cc_pref_'+k,v):localStorage.removeItem('cc_pref_'+k)}catch(e){}}};

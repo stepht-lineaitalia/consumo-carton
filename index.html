@@ -18,7 +18,8 @@
 <nav id="side" class="adm" aria-label="Módulos">
 <div class="mod"><button class="mh on" data-mod="carton" type="button">Cartón</button>
 <div class="subm" id="subcarton"><button id="t1" class="on w" type="button">Captura</button><button id="t3" type="button">Análisis</button><button id="t4" type="button">Modelos</button><button id="t2" type="button">Tablero</button></div></div>
-<div class="mod"><button class="mh" data-mod="hojas" type="button">Hojas single</button></div>
+<div class="mod"><button class="mh" data-mod="hojas" type="button">Hojas single</button>
+<div class="subm hide" id="subhojas"><button data-hs="prog" class="on" type="button">Programa</button></div></div>
 <div class="mod"><button class="mh" data-mod="ambos" type="button">Vista consolidada</button></div>
 </nav>
 <main>
@@ -102,11 +103,15 @@
 <div id="mlista"></div>
 </section>
 <!-- Hojas single y Vista consolidada: secciones de Administración (se construyen en las siguientes etapas) -->
-<section id="vh" class="hide adm"><div class="card"><h2>Hojas single</h2>
-<p class="mut" style="margin-top:0">Este módulo está en construcción. Aquí vas a encontrar:</p>
-<ul class="rx"><li class="rx-in"><b>Programa:</b> cargar el Excel del ERP y generar el PDF de producción (Muebles y Libreros).</li>
-<li class="rx-in"><b>Captura:</b> pasar las hojas reales que anotó el operador en el PDF.</li>
-<li class="rx-in"><b>Tablero, Análisis y Modelos:</b> hojas esperadas contra reales, diferencias y alertas.</li></ul></div></section>
+<section id="vh" class="hide adm">
+<div class="card"><h2>Cargar programa del ERP</h2>
+<p class="mut" style="margin-top:0">Sube el Excel «Líneas comp. ped. prod.». Solo entran <b>ENS MUEBLE</b> (Muebles) y <b>ENS LIBRER</b> (Libreros) de la hoja single. Hojas por mueble = Cantidad por ÷ 0.25 kg; muebles = Cantidad esperada ÷ Cantidad por.</p>
+<input type="file" id="hsfile" accept=".xlsx,.xls,.csv" class="w"><div id="hsmsg" class="mut" style="margin-top:8px"></div></div>
+<div class="card"><h2>PDF de producción</h2>
+<div class="row"><label style="flex:0 1 220px">Fecha de programa<select id="hsfecha"></select></label><button class="btn" id="hspdf" type="button">Generar PDF</button></div>
+<p class="mut" id="hsinfo" style="margin:8px 0 0"></p><p class="mut" id="hspdfmsg" style="margin:4px 0 0"></p>
+<div id="hstabla" style="margin-top:10px"></div></div>
+</section>
 <section id="va" class="hide adm"><div class="card"><h2>Vista consolidada</h2>
 <p class="mut" style="margin:0">En construcción: aquí vas a poder buscar una OP o un modelo y ver su consumo de cartón y de hojas single lado a lado.</p></div></section>
 </main>
@@ -114,6 +119,7 @@
 
 <script src="js/comun.js?v=5.7.0"></script>
 <script src="js/carton.js?v=5.7.0"></script>
+<script src="js/hojas.js?v=5.7.0"></script>
 <script src="js/app.js?v=5.7.0"></script>
 </body>
 </html>

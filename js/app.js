@@ -7,10 +7,10 @@ const MODS={carton:{t:'Consumo de cartón',s:'Captura en cm, cálculo y reportes
 let modulo='carton';
 function verModulo(m){if(m!=='carton'&&!document.body.classList.contains('admin'))m='carton';modulo=m;
   document.querySelectorAll('#side .mh').forEach(b=>b.classList.toggle('on',b.dataset.mod===m));
-  $('#subcarton').classList.toggle('hide',m!=='carton');$('#ttl').textContent=MODS[m].t;$('#subt').textContent=MODS[m].s;
+  $('#subcarton').classList.toggle('hide',m!=='carton');$('#subhojas').classList.toggle('hide',m!=='hojas');$('#ttl').textContent=MODS[m].t;$('#subt').textContent=MODS[m].s;
   $('#vh').classList.toggle('hide',m!=='hojas');$('#va').classList.toggle('hide',m!=='ambos');
   if(m!=='carton'){[1,2,3,4].forEach(i=>$('#v'+i).classList.add('hide'));$('#flt').classList.add('hide')}}
-function irModulo(m){if(m==='carton')tab(cur);else verModulo(m)}
+function irModulo(m){if(m==='carton')tab(cur);else{verModulo(m);if(m==='hojas')hsAbrir()}}
 $('#side').addEventListener('click',e=>{const b=e.target.closest('.mh');if(b)irModulo(b.dataset.mod)});
 async function tab(n){verModulo('carton');if(n!==1&&!document.body.classList.contains('admin'))n=1;if(n===1&&document.body.classList.contains('ro'))n=3;cur=n;
   [1,2,3,4].forEach(i=>{$('#v'+i).classList.toggle('hide',n!==i);$('#t'+i).classList.toggle('on',n===i)});
