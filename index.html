@@ -4,13 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Consumo de cartón</title>
-<meta name="version" content="5.8.2">
+<meta name="version" content="5.8.3">
 <link rel="stylesheet" href="vendor/fonts.css">
 <script src="vendor/xlsx.full.min.js"></script>
 <script src="vendor/supabase.min.js"></script>
 <!-- config.js: URL y clave pública del proyecto de Supabase. Vacío = la app trabaja solo en el navegador. Ver GUIA-NUBE.md -->
 <script src="config.js"></script>
-<link rel="stylesheet" href="estilos.css?v=5.8.2">
+<link rel="stylesheet" href="estilos.css?v=5.8.3">
 </head>
 <body>
 <div class="shell">
@@ -116,7 +116,7 @@
 <div id="hsv-cap" class="hide">
 <div class="card"><h2>Captura de hojas reales</h2>
 <p class="mut" style="margin-top:0">Pasa lo que el operador anotó en la columna amarilla del PDF («Hojas realmente utilizadas por mueble»). Cada renglón se pinta al escribir; con <b>Enter</b> bajas al siguiente. Nada se guarda hasta que das <b>Guardar</b>.</p>
-<div class="row"><label style="flex:0 1 200px">Fecha de programa<select id="hcfecha"></select></label><label style="flex:0 1 160px">Área<select id="hcarea"><option value="MUEBLES">Muebles</option><option value="LIBREROS">Libreros</option></select></label><label style="flex:1 1 200px">Buscar OP o modelo<input id="hcq" placeholder="Ej. OP09253006 o C2-2206" autocomplete="off"></label><label style="flex:0 0 auto;white-space:nowrap"><br><input type="checkbox" id="hccomv" style="width:auto"> Mostrar comentarios</label></div>
+<div class="row"><label style="flex:0 1 200px">Fecha de programa<select id="hcfecha"></select></label><label style="flex:0 1 160px">Área<select id="hcarea"><option value="MUEBLES">Muebles</option><option value="LIBREROS">Libreros</option></select></label><label style="flex:1 1 200px">Buscar OP o modelo<input id="hcq" placeholder="Ej. OP09253006 o C2-2206" autocomplete="off"></label><label style="flex:0 0 auto;white-space:nowrap"><br><input type="checkbox" id="hccomv" style="width:auto"> Mostrar estado y comentarios</label></div>
 <p class="mut" id="hcinfo" style="margin:8px 0 0"></p></div>
 <div class="card"><div id="hctabla"></div>
 <div class="row" style="margin-top:10px"><button class="btn" id="hcsave" type="button">Guardar</button><button class="btn ghost" id="hcadd" type="button">+ Agregar OP</button></div>
@@ -128,9 +128,9 @@
 </main>
 </div>
 
-<script src="js/comun.js?v=5.8.2"></script>
-<script src="js/carton.js?v=5.8.2"></script>
-<script src="js/hojas.js?v=5.8.2"></script>
-<script src="js/app.js?v=5.8.2"></script>
+<script src="js/comun.js?v=5.8.3"></script>
+<script src="js/carton.js?v=5.8.3"></script>
+<script src="js/hojas.js?v=5.8.3"></script>
+<script src="js/app.js?v=5.8.3"></script>
 </body>
 </html>

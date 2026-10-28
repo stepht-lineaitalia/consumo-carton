@@ -206,10 +206,10 @@ function hcRow(p,o){o=o||{};const op=p.op,esp=p.kgPor>0?p.hojasMueble:null,rv=hc
   return`<tr class="r-${e?e.k:'err'}" data-op="${esc(op)}"><td>${esc(op)}${o.fecha?`<br><span class="mut">Programa ${dmyISO(p.fecha)}${o.area?' · '+AREA_TXT[p.area]:''}</span>`:''}</td><td>${esc(p.modelo||'')}</td>
     <td class="n">${p.muebles!=null&&p.muebles!==''?nfmt(+p.muebles):'—'}</td><td class="n">${esp!=null?nfmt(esp):'—'}</td>
     <td><input class="hcreal" data-op="${esc(op)}" inputmode="decimal" autocomplete="off" value="${esc(rv)}" style="width:80px${isNaN(real)?';border-color:var(--bad)':''}"></td>
-    <td class="n hcdif">${dif==null?'—':(dif>0?'+':'')+nfmt(dif)}</td>
-    <td class="hcest">${e?`<span class="chip st st-${e.k}">${e.t}</span>`:'<span class="chip err">Número inválido</span>'}${ed?' <span class="mut" title="Sin guardar">●</span>':''}${!hcComV&&hcVal(op,'com').trim()?` <span title="${esc(hcVal(op,'com'))}">💬</span>`:''}</td>
+    <td class="n hcdif"><span class="${dif==null?'':Math.abs(dif)<=hsTol+1e-9?'c-ok':'pos'}" style="font-weight:600">${dif==null?'—':(dif>0?'+':'')+nfmt(dif)}</span>${!e?' <span class="chip err">Inválido</span>':''}${ed?' <span class="mut" title="Sin guardar">●</span>':''}${!hcComV&&hcVal(op,'com').trim()?` <span title="${esc(hcVal(op,'com'))}">💬</span>`:''}</td>
+    <td class="hcest ccom">${e?`<span class="chip st st-${e.k}">${e.t}</span>`:'<span class="chip err">Número inválido</span>'}</td>
     <td class="ccom"><input class="hccom" data-op="${esc(op)}" autocomplete="off" value="${esc(hcVal(op,'com'))}" placeholder="Opcional" style="min-width:120px"></td></tr>`}
-const HC_HEAD='<thead><tr><th>OP</th><th>Modelo</th><th class="n">Muebles</th><th class="n">Hojas por mueble</th><th>Reales por mueble</th><th class="n">Diferencia</th><th>Estado</th><th class="ccom">Comentario</th></tr></thead>';
+const HC_HEAD='<thead><tr><th>OP</th><th>Modelo</th><th class="n">Muebles</th><th class="n">Hojas por mueble</th><th>Reales por mueble</th><th class="n">Diferencia</th><th class="ccom">Estado</th><th class="ccom">Comentario</th></tr></thead>';
 function hsCapturaView(){
   const fs=[...new Set(hsProg.map(p=>p.fecha).filter(Boolean))].sort().reverse();
   if(!fs.includes(hsFecha))hsFecha=hsFechaDefault([...fs].reverse());
@@ -272,7 +272,8 @@ $('#hcadd').onclick=()=>{hcExtra.push({op:'',modelo:'',muebles:'',real:''});hsCa
 $('#hcsave').onclick=()=>hcGuardar();
 $('#hcq').oninput=()=>hsCapturaView();   // los cambios sin guardar se conservan al buscar (van por OP)
 $('#hsq').oninput=()=>hsProgramaView(true);
-// Comentarios ocultos por defecto (se recuerda en este equipo); 💬 indica que la OP tiene comentario (pasa el mouse para leerlo).
+// Estado y comentarios ocultos por defecto (se recuerda en este equipo). Sin ellos, el color queda en la línea del renglón y en la
+// diferencia (verde = correcto, rojo = diferencia); 💬 indica que la OP tiene comentario (pasa el mouse para leerlo).
 $('#hccomv').onchange=e=>{hcComV=e.target.checked;PREF.set('hs_com',hcComV?'1':'');hsCapturaView()};
 const hcCambiar=fn=>{if(hcDirty()&&!confirm('Tienes cambios sin guardar en la captura. ¿Descartarlos?'))return false;hcEdit={};hcExtra=[];hcMsg('');fn();hsCapturaView();return true};
 $('#hcfecha').onchange=e=>{const v=e.target.value;if(!hcCambiar(()=>hsFecha=v))e.target.value=hsFecha};
