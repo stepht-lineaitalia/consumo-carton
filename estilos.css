@@ -115,3 +115,8 @@ body.sidecol #side{display:none!important}
 .nocom .ccom{display:none}
 #hctab td{padding:5px 6px;vertical-align:middle}#hctab input{padding:4px 6px}
 .nohdet .hdet{display:none}
+/* Comparativo de consumos: dos tarjetas lado a lado (una columna en celular) */
+.cmp2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}.cmp2>.card{margin:0}
+.cmpk{grid-template-columns:repeat(3,minmax(0,1fr));margin:10px 0}.cmpk .kpi b{font-size:17px}
+.cmplk{display:inline-block;margin-top:6px;font-size:13px;color:var(--acc)}
+@media(max-width:700px){.cmp2{grid-template-columns:1fr}}

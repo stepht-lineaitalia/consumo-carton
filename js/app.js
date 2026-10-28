@@ -10,7 +10,7 @@ function verModulo(m){if(m!=='carton'&&!document.body.classList.contains('admin'
   $('#subcarton').classList.toggle('hide',m!=='carton');$('#subhojas').classList.toggle('hide',m!=='hojas');$('#ttl').textContent=MODS[m].t;$('#subt').textContent=MODS[m].s;
   $('#vh').classList.toggle('hide',m!=='hojas');$('#va').classList.toggle('hide',m!=='ambos');
   if(m!=='carton'){[1,2,3,4].forEach(i=>$('#v'+i).classList.add('hide'));$('#flt').classList.add('hide')}}
-function irModulo(m){if(m==='carton')tab(cur);else{verModulo(m);if(m==='hojas')hsAbrir()}}
+function irModulo(m){if(m==='carton')tab(cur);else{verModulo(m);if(m==='hojas')hsAbrir();if(m==='ambos')compAbrir()}}
 $('#side').addEventListener('click',e=>{const b=e.target.closest('.mh');if(b)irModulo(b.dataset.mod)});
 // Menú ocultable (☰): se recuerda en este equipo. Ruta actual arriba del título («Cartón › Tablero») para no perderse con el menú oculto.
 document.body.classList.toggle('sidecol',PREF.get('sidecol')==='1');
