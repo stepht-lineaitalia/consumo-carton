@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Consumo de cartón</title>
+<meta name="version" content="5.7.0">
 <link rel="stylesheet" href="vendor/fonts.css">
 <script src="vendor/xlsx.full.min.js"></script>
 <script src="vendor/supabase.min.js"></script>
@@ -13,15 +14,15 @@
 </head>
 <body>
 <div class="shell">
-<!-- Menú de Administración (no lo ve Planta): módulos Cartón, Hojas single y Ambos. Ver irModulo() en js/app.js -->
+<!-- Menú de Administración (no lo ve Planta): módulos Cartón, Hojas single y Vista consolidada. Ver irModulo() en js/app.js -->
 <nav id="side" class="adm" aria-label="Módulos">
 <div class="mod"><button class="mh on" data-mod="carton" type="button">Cartón</button>
 <div class="subm" id="subcarton"><button id="t1" class="on w" type="button">Captura</button><button id="t3" type="button">Análisis</button><button id="t4" type="button">Modelos</button><button id="t2" type="button">Tablero</button></div></div>
 <div class="mod"><button class="mh" data-mod="hojas" type="button">Hojas single</button></div>
-<div class="mod"><button class="mh" data-mod="ambos" type="button">Ambos</button></div>
+<div class="mod"><button class="mh" data-mod="ambos" type="button">Vista consolidada</button></div>
 </nav>
 <main>
-<div class="top"><div><h1><span id="ttl">Consumo de cartón</span> <span class="chip ok" title="Versión técnica 5.7.0">Versión 1</span></h1><p class="sub" id="subt">Captura en cm, cálculo y reportes en m².</p></div>
+<div class="top"><div><h1 id="ttl">Consumo de cartón</h1><p class="sub" id="subt">Captura en cm, cálculo y reportes en m².</p></div>
 <div class="mut" style="text-align:right"><label id="admw" style="white-space:nowrap"><input type="checkbox" id="adm" style="width:auto"> Modo admin</label><span id="ses" class="hide"></span></div></div>
 <section id="vlogin" class="card hide" style="max-width:380px;margin:24px auto">
 <h2>Iniciar sesión</h2><p class="mut" style="margin-top:0">En los equipos de planta se inicia sesión una sola vez; el equipo la recuerda.</p>
@@ -100,13 +101,13 @@
 </section>
 <div id="mlista"></div>
 </section>
-<!-- Hojas single y Ambos: secciones de Administración (se construyen en las siguientes etapas) -->
+<!-- Hojas single y Vista consolidada: secciones de Administración (se construyen en las siguientes etapas) -->
 <section id="vh" class="hide adm"><div class="card"><h2>Hojas single</h2>
 <p class="mut" style="margin-top:0">Este módulo está en construcción. Aquí vas a encontrar:</p>
 <ul class="rx"><li class="rx-in"><b>Programa:</b> cargar el Excel del ERP y generar el PDF de producción (Muebles y Libreros).</li>
 <li class="rx-in"><b>Captura:</b> pasar las hojas reales que anotó el operador en el PDF.</li>
 <li class="rx-in"><b>Tablero, Análisis y Modelos:</b> hojas esperadas contra reales, diferencias y alertas.</li></ul></div></section>
-<section id="va" class="hide adm"><div class="card"><h2>Cartón y hojas single</h2>
+<section id="va" class="hide adm"><div class="card"><h2>Vista consolidada</h2>
 <p class="mut" style="margin:0">En construcción: aquí vas a poder buscar una OP o un modelo y ver su consumo de cartón y de hojas single lado a lado.</p></div></section>
 </main>
 </div>

@@ -1,9 +1,9 @@
 // Arranque de la app: navegación entre pestañas, sesión, roles y operador. Se carga al final.
 /* ==== MÓDULOS (menú lateral de Administración) ====
-   Cartón (Captura, Análisis, Modelos, Tablero) · Hojas single · Ambos. Planta no ve el menú: siempre queda en Cartón → Captura. */
+   Cartón (Captura, Análisis, Modelos, Tablero) · Hojas single · Vista consolidada. Planta no ve el menú: siempre queda en Cartón → Captura. */
 const MODS={carton:{t:'Consumo de cartón',s:'Captura en cm, cálculo y reportes en m².'},
   hojas:{t:'Hojas single',s:'Programa, PDF de producción y control en hojas.'},
-  ambos:{t:'Cartón y hojas single',s:'Consulta los dos consumos de una OP o de un modelo.'}};
+  ambos:{t:'Vista consolidada',s:'Cartón y hojas single de una OP o de un modelo, lado a lado.'}};
 let modulo='carton';
 function verModulo(m){if(m!=='carton'&&!document.body.classList.contains('admin'))m='carton';modulo=m;
   document.querySelectorAll('#side .mh').forEach(b=>b.classList.toggle('on',b.dataset.mod===m));
