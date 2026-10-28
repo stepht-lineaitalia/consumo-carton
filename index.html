@@ -19,7 +19,7 @@
 <div class="mod"><button class="mh on" data-mod="carton" type="button">Cartón</button>
 <div class="subm" id="subcarton"><button id="t1" class="on w" type="button">Captura</button><button id="t3" type="button">Análisis</button><button id="t4" type="button">Modelos</button><button id="t2" type="button">Tablero</button></div></div>
 <div class="mod"><button class="mh" data-mod="hojas" type="button">Hojas single</button>
-<div class="subm hide" id="subhojas"><button data-hs="prog" class="on" type="button">Programa</button></div></div>
+<div class="subm hide" id="subhojas"><button data-hs="prog" class="on" type="button">Programa</button><button data-hs="cap" class="w" type="button">Captura</button></div></div>
 <div class="mod"><button class="mh" data-mod="ambos" type="button">Vista consolidada</button></div>
 </nav>
 <main>
@@ -104,6 +104,7 @@
 </section>
 <!-- Hojas single y Vista consolidada: secciones de Administración (se construyen en las siguientes etapas) -->
 <section id="vh" class="hide adm">
+<div id="hsv-prog">
 <div class="card"><h2>Cargar programa del ERP</h2>
 <p class="mut" style="margin-top:0">Sube el Excel «Líneas comp. ped. prod.». Solo entran <b>ENS MUEBLE</b> (Muebles) y <b>ENS LIBRER</b> (Libreros) de la hoja single. Hojas por mueble = Cantidad por ÷ 0.25 kg; muebles = Cantidad esperada ÷ Cantidad por.</p>
 <input type="file" id="hsfile" accept=".xlsx,.xls,.csv" class="w"><div id="hsmsg" class="mut" style="margin-top:8px"></div></div>
@@ -111,6 +112,16 @@
 <div class="row"><label style="flex:0 1 220px">Fecha de programa<select id="hsfecha"></select></label><button class="btn" id="hspdf" type="button">Generar PDF</button></div>
 <p class="mut" id="hsinfo" style="margin:8px 0 0"></p><p class="mut" id="hspdfmsg" style="margin:4px 0 0"></p>
 <div id="hstabla" style="margin-top:10px"></div></div>
+</div>
+<div id="hsv-cap" class="hide">
+<div class="card"><h2>Captura de hojas reales</h2>
+<p class="mut" style="margin-top:0">Pasa lo que el operador anotó en la columna amarilla del PDF («Hojas realmente utilizadas por mueble»). Cada renglón se pinta al escribir; con <b>Enter</b> bajas al siguiente. Nada se guarda hasta que das <b>Guardar</b>.</p>
+<div class="row"><label style="flex:0 1 200px">Fecha de programa<select id="hcfecha"></select></label><label style="flex:0 1 160px">Área<select id="hcarea"><option value="MUEBLES">Muebles</option><option value="LIBREROS">Libreros</option></select></label></div>
+<p class="mut" id="hcinfo" style="margin:8px 0 0"></p></div>
+<div class="card"><div id="hctabla"></div>
+<div class="row" style="margin-top:10px"><button class="btn" id="hcsave" type="button">Guardar</button><button class="btn ghost" id="hcadd" type="button">+ Agregar OP</button></div>
+<p id="hcmsg" style="margin:8px 0 0"></p></div>
+</div>
 </section>
 <section id="va" class="hide adm"><div class="card"><h2>Vista consolidada</h2>
 <p class="mut" style="margin:0">En construcción: aquí vas a poder buscar una OP o un modelo y ver su consumo de cartón y de hojas single lado a lado.</p></div></section>

@@ -31,14 +31,24 @@ const HDB=(()=>{
         data:{kgPor:p.kgPor,kgEsp:p.kgEsp,muebles:p.muebles,hojasMueble:p.hojasMueble,estadoERP:p.estadoERP,producto:p.producto}}));
       for(let i=0;i<rows.length;i+=500)await run(SBC.from('hs_programa').upsert(rows.slice(i,i+500),{onConflict:'op'}))},
     async listRegistros(){return(await todo(()=>SBC.from('hs_registros').select('id,op,ts,data,version,capturado_por').is('deleted_at',null).order('ts',{ascending:false})))
-      .map(w=>({...w.data,id:w.id,op:w.op,ts:w.ts,version:w.version,por:w.capturado_por||''}))}
+      .map(w=>({...w.data,id:w.id,op:w.op,ts:w.ts,version:w.version,por:w.capturado_por||''}))},
+    // Guarda un registro: nuevo (sin id) o corrección (con id y versión; si otro lo cambió antes, avisa).
+    async saveRegistro(r){const data={...r};['id','op','ts','version','por'].forEach(k=>delete data[k]);
+      if(r.id==null)return run(SBC.from('hs_registros').insert({op:r.op,ts:r.ts,data,capturado_por:quien()}).select('id').single());
+      const v=Number(r.version)||1,d=await run(SBC.from('hs_registros').update({data,version:v+1}).eq('id',r.id).eq('version',v).select('id'));
+      if(!d||!d.length)throw new Error('Otro usuario modificó la OP '+r.op+' mientras capturabas. Recarga y vuelve a intentar.')},
+    async deleteRegistro(r){const v=Number(r.version)||1,d=await run(SBC.from('hs_registros').update({deleted_at:new Date().toISOString(),version:v+1}).eq('id',r.id).eq('version',v).select('id'));
+      if(!d||!d.length)throw new Error('Otro usuario modificó la OP '+r.op+'. Recarga y vuelve a intentar.')}
   };
   const get=(k,d)=>{try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}};
   const put=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){throw new Error('No se pudo escribir en el almacenamiento del navegador (¿lleno?).')}};
   return{
     async listPrograma(){return Object.values(get('hs_programa',{}))},
     async upsertPrograma(L){const c=get('hs_programa',{}),por=quien(),now=new Date().toISOString();L.forEach(p=>c[p.op]={...p,act:now,por});put('hs_programa',c)},
-    async listRegistros(){return get('hs_registros',[])}
+    async listRegistros(){return get('hs_registros',[])},
+    async saveRegistro(r){const a=get('hs_registros',[]);if(r.id==null){let i=Date.now();while(a.some(x=>x.id===i))i++;a.unshift({...r,id:i,por:quien()})}
+      else{const k=a.findIndex(x=>x.id===r.id);if(k<0)throw new Error('El registro de '+r.op+' ya no existe.');a[k]={...a[k],...r}}put('hs_registros',a)},
+    async deleteRegistro(r){put('hs_registros',get('hs_registros',[]).filter(x=>x.id!==r.id))}
   };
 })();
 
@@ -166,12 +176,107 @@ async function hsGenerarPDF(){
   finally{$('#hspdf').disabled=false}
 }
 
+/* ==== CAPTURA DE REALES (Administración) ====
+   Misma forma que el PDF: eliges fecha y área, escribes las «Hojas realmente utilizadas por mueble» y cada renglón se pinta
+   al momento. Nada se guarda hasta «Guardar». Las OP sin capturar quedan Pendientes y siguen apareciendo en fechas
+   posteriores (sección «Pendientes de fechas anteriores») hasta que se registren. Lo ya capturado se puede corregir;
+   si borras el número de una OP capturada y guardas, el registro se elimina (vuelve a Pendiente). */
+let hsTol=0;                                     // tolerancia en hojas por mueble (etapa 6: configurable)
+let hcArea='MUEBLES',hcEdit={},hcExtra=[];
+const HC_EST={ok:{k:'ok',t:'Correcto'},dif:{k:'cambcons',t:'Diferencia'},pend:{k:'pend',t:'Pendiente'},sinprog:{k:'sinprog',t:'Sin programar'}};
+const hsRegBy=()=>{const m={};[...hsReg].sort((a,b)=>a.ts-b.ts).forEach(r=>m[r.op]=r);return m};
+const hcNum=v=>{const t=String(v==null?'':v).trim().replace(',','.');return t===''?null:(/^\d+(\.\d+)?$/.test(t)?parseFloat(t):NaN)};
+function hsEstado(esp,real){if(real==null)return HC_EST.pend;if(esp==null)return HC_EST.sinprog;return Math.abs(real-esp)<=hsTol+1e-9?HC_EST.ok:HC_EST.dif}
+// Valor que se ve en el renglón: lo editado (sin guardar) o lo guardado.
+const hcVal=(op,k)=>{const e=hcEdit[op];if(e&&k in e)return e[k];const r=hsRegBy()[op];return r?(k==='real'?String(r.real):(r.com||'')):''};
+function hcFilas(){
+  const reg=hsRegBy(),f=hsFecha,a=hcArea;
+  const dia=hsProg.filter(p=>p.fecha===f&&p.area===a).sort((x,y)=>x.op.localeCompare(y.op));
+  const enDia=new Set(dia.map(p=>p.op));
+  const pend=hsProg.filter(p=>p.area===a&&p.fecha&&p.fecha<f&&!reg[p.op]&&!enDia.has(p.op)).sort((x,y)=>x.fecha.localeCompare(y.fecha)||x.op.localeCompare(y.op));
+  // capturadas sin programa (OP agregadas a mano) de esta fecha/área
+  const sinp=Object.values(reg).filter(r=>!hsProg.some(p=>p.op===r.op)&&r.prog&&r.prog.area===a&&r.prog.fecha===f);
+  return{dia,pend,sinp};
+}
+function hcRow(p,o){o=o||{};const op=p.op,esp=p.kgPor>0?p.hojasMueble:null,rv=hcVal(op,'real'),real=hcNum(rv),e=isNaN(real)?null:hsEstado(esp,real);
+  const dif=real!=null&&!isNaN(real)&&esp!=null?real-esp:null,ed=hcEdit[op]&&Object.keys(hcEdit[op]).length;
+  return`<tr class="r-${e?e.k:'err'}" data-op="${esc(op)}"><td>${esc(op)}${o.fecha?`<br><span class="mut">Programa ${dmyISO(p.fecha)}</span>`:''}</td><td>${esc(p.modelo||'')}</td>
+    <td class="n">${p.muebles!=null&&p.muebles!==''?nfmt(+p.muebles):'—'}</td><td class="n">${esp!=null?nfmt(esp):'—'}</td>
+    <td><input class="hcreal" data-op="${esc(op)}" inputmode="decimal" autocomplete="off" value="${esc(rv)}" style="width:80px${isNaN(real)?';border-color:var(--bad)':''}"></td>
+    <td class="n hcdif">${dif==null?'—':(dif>0?'+':'')+nfmt(dif)}</td>
+    <td class="hcest">${e?`<span class="chip st st-${e.k}">${e.t}</span>`:'<span class="chip err">Número inválido</span>'}${ed?' <span class="mut" title="Sin guardar">●</span>':''}</td>
+    <td><input class="hccom" data-op="${esc(op)}" autocomplete="off" value="${esc(hcVal(op,'com'))}" placeholder="Opcional" style="min-width:120px"></td></tr>`}
+function hsCapturaView(){
+  const fs=[...new Set(hsProg.map(p=>p.fecha).filter(Boolean))].sort().reverse();
+  if(!fs.includes(hsFecha))hsFecha=hsFechaDefault([...fs].reverse());
+  $('#hcfecha').innerHTML=fs.length?fs.map(f=>`<option value="${f}"${f===hsFecha?' selected':''}>${dmyISO(f)}</option>`).join(''):'<option value="">— Sin programa cargado —</option>';
+  $('#hcarea').value=hcArea;
+  const {dia,pend,sinp}=hcFilas(),reg=hsRegBy(),todas=[...dia,...pend];
+  const capt=todas.filter(p=>reg[p.op]).length,dif=todas.filter(p=>reg[p.op]&&p.kgPor>0&&Math.abs(reg[p.op].real-p.hojasMueble)>hsTol+1e-9).length;
+  $('#hcinfo').innerHTML=fs.length?`<b>${dia.length}</b> OP de ${AREA_TXT[hcArea].toLowerCase()} en esta fecha · ${dia.filter(p=>reg[p.op]).length} capturadas · ${dia.filter(p=>!reg[p.op]).length} pendientes`+
+    (dif?` · <b style="color:var(--bad)">${dif} con diferencia</b>`:'')+(pend.length?` · <b style="color:var(--warn)">${pend.length} pendientes de fechas anteriores</b>`:''):'Carga primero el programa en «Programa».';
+  const head='<thead><tr><th>OP</th><th>Modelo</th><th class="n">Muebles</th><th class="n">Hojas por mueble</th><th>Reales por mueble</th><th class="n">Diferencia</th><th>Estado</th><th>Comentario</th></tr></thead>';
+  let h=dia.map(p=>hcRow(p)).join('')+sinp.map(r=>hcRow({op:r.op,modelo:r.prog.modelo,muebles:r.prog.muebles,kgPor:0})).join('');
+  if(pend.length)h+=`<tr><td colspan="8" style="background:var(--warnbg);color:var(--warn);font-weight:600">Pendientes de fechas anteriores (${pend.length})</td></tr>`+pend.map(p=>hcRow(p,{fecha:1})).join('');
+  h+=hcExtra.map((x,i)=>`<tr class="r-pend"><td colspan="8"><div class="row"><label>OP agregada a mano<input class="hcxop" data-i="${i}" value="${esc(x.op)}" placeholder="OP…" autocomplete="off"></label><label>Modelo<input class="hcxmod" data-i="${i}" value="${esc(x.modelo)}" autocomplete="off"></label><label>Muebles<input class="hcxmu" data-i="${i}" value="${esc(x.muebles)}" inputmode="numeric"></label><label>Reales por mueble<input class="hcxreal" data-i="${i}" value="${esc(x.real)}" inputmode="decimal"></label><button class="btn ghost sm" data-hcxdel="${i}" type="button">Quitar</button></div></td></tr>`).join('');
+  $('#hctabla').innerHTML=dia.length||pend.length||sinp.length||hcExtra.length?`<div class="scroll"><table id="hctab" class="tc">${head}<tbody>${h}</tbody></table></div>`:'<p class="mut">No hay OP de esta área para la fecha elegida.</p>';
+}
+const hcDirty=()=>Object.values(hcEdit).some(e=>Object.keys(e).length)||hcExtra.some(x=>x.op||x.real);
+function hcSet(op,k,v){const r=hsRegBy()[op],g=r?(k==='real'?String(r.real):(r.com||'')):'';const e=hcEdit[op]||(hcEdit[op]={});if(v===g)delete e[k];else e[k]=v}
+function hcRepinta(tr){const op=tr.dataset.op,p=hsProg.find(x=>x.op===op)||{op,kgPor:0,modelo:(hsRegBy()[op]||{prog:{}}).prog.modelo,muebles:(hsRegBy()[op]||{prog:{}}).prog.muebles};
+  const pend=!!tr.querySelector('.mut')&&tr.cells[0].querySelector('.mut');const tmp=document.createElement('tbody');tmp.innerHTML=hcRow(p,{fecha:pend});const n=tmp.firstElementChild;
+  tr.className=n.className;tr.querySelector('.hcdif').innerHTML=n.querySelector('.hcdif').innerHTML;tr.querySelector('.hcest').innerHTML=n.querySelector('.hcest').innerHTML;
+  tr.querySelector('.hcreal').style.borderColor=n.querySelector('.hcreal').style.borderColor}
+const hcMsg=(h,bad)=>{const e=$('#hcmsg');e.innerHTML=h;e.style.color=bad?'var(--bad)':''};
+async function hcGuardar(){
+  const reg=hsRegBy(),nuevos=[],corr=[],borrar=[],malos=[];
+  // OP agregadas a mano: si ya están en la tabla se pasan a ese renglón
+  for(const x of hcExtra){const op=String(x.op||'').trim().toUpperCase();if(!op&&!String(x.real).trim())continue;
+    if(!op){malos.push('falta la OP en un renglón agregado');continue}const v=hcNum(x.real);if(v==null||isNaN(v)){malos.push(op+': hojas reales inválidas');continue}
+    const p=hsProg.find(q=>q.op===op);if(reg[op]||p){hcSet(op,'real',String(v));continue}
+    nuevos.push({op,ts:Date.now(),real:v,com:'',prog:{modelo:String(x.modelo||'').trim(),area:hcArea,fecha:hsFecha,muebles:num(x.muebles)||'',hojasMueble:null,manual:true}})}
+  Object.entries(hcEdit).forEach(([op,e])=>{if(!Object.keys(e).length)return;const r=reg[op],p=hsProg.find(q=>q.op===op);
+    const rv='real' in e?e.real:(r?String(r.real):''),v=hcNum(rv),com=('com' in e?e.com:(r&&r.com)||'').trim();
+    if(v!=null&&isNaN(v)){malos.push(op+': «'+rv+'» no es un número');return}
+    if(v==null){if(r)borrar.push(r);return}
+    const prog=p?{modelo:p.modelo,area:p.area,fecha:p.fecha,muebles:p.muebles,hojasMueble:p.hojasMueble}:(r&&r.prog)||{area:hcArea,fecha:hsFecha};
+    if(!r)nuevos.push({op,ts:Date.now(),real:v,com,prog});else corr.push({...r,real:v,com,prog:r.prog||prog,corr:{por:quien(),ts:Date.now()}})});
+  if(malos.length){hcMsg('⚠ Revisa antes de guardar: '+malos.map(esc).join(' · '),true);return}
+  if(!nuevos.length&&!corr.length&&!borrar.length){hcMsg('No hay cambios por guardar.');return}
+  if(borrar.length&&!confirm(`Vas a borrar el registro de ${borrar.length} OP (${borrar.map(r=>r.op).join(', ')}): volverán a Pendiente. ¿Continuar?`))return;
+  $('#hcsave').disabled=true;hcMsg('Guardando…');let ok=0;
+  try{for(const r of nuevos){await HDB.saveRegistro(r);ok++}for(const r of corr){await HDB.saveRegistro(r);ok++}for(const r of borrar){await HDB.deleteRegistro(r);ok++}
+    hcEdit={};hcExtra=[];await hsCargarDatos();hsCapturaView();
+    hcMsg(`✓ Guardado: ${nuevos.length} nuevo(s)`+(corr.length?`, ${corr.length} corregido(s)`:'')+(borrar.length?`, ${borrar.length} borrado(s)`:'')+'.')}
+  catch(x){await hsCargarDatos().catch(()=>{});hsCapturaView();hcMsg('⚠ '+esc(x.message||x)+(ok?` (se alcanzaron a guardar ${ok}; revisa y vuelve a guardar lo que falte)`:''),true)}
+  finally{$('#hcsave').disabled=false}
+}
+$('#hctabla').addEventListener('input',e=>{const t=e.target,tr=t.closest('tr');
+  if(t.classList.contains('hcreal')){hcSet(t.dataset.op,'real',t.value);hcRepinta(tr)}
+  else if(t.classList.contains('hccom')){hcSet(t.dataset.op,'com',t.value);hcRepinta(tr)}
+  else{const i=t.dataset.i;if(i==null)return;const x=hcExtra[i],k=t.classList.contains('hcxop')?'op':t.classList.contains('hcxmod')?'modelo':t.classList.contains('hcxmu')?'muebles':'real';x[k]=t.value;
+    if(k==='op'){const p=hsProg.find(q=>q.op===t.value.trim().toUpperCase());if(p){x.modelo=p.modelo;x.muebles=nfmt(p.muebles);tr.querySelector('.hcxmod').value=x.modelo;tr.querySelector('.hcxmu').value=x.muebles}}}
+  hcMsg('')});
+// Enter = bajar al siguiente renglón (para pasar el papel rápido)
+$('#hctabla').addEventListener('keydown',e=>{if(e.key!=='Enter'||!e.target.classList.contains('hcreal'))return;e.preventDefault();
+  const I=[...document.querySelectorAll('#hctabla .hcreal')],k=I.indexOf(e.target);if(I[k+1]){I[k+1].focus();I[k+1].select()}else $('#hcsave').focus()});
+$('#hctabla').addEventListener('click',e=>{const i=e.target.dataset.hcxdel;if(i==null)return;hcExtra.splice(+i,1);hsCapturaView()});
+$('#hcadd').onclick=()=>{hcExtra.push({op:'',modelo:'',muebles:'',real:''});hsCapturaView();const I=document.querySelectorAll('#hctabla .hcxop');if(I.length)I[I.length-1].focus()};
+$('#hcsave').onclick=()=>hcGuardar();
+const hcCambiar=fn=>{if(hcDirty()&&!confirm('Tienes cambios sin guardar en la captura. ¿Descartarlos?'))return false;hcEdit={};hcExtra=[];hcMsg('');fn();hsCapturaView();return true};
+$('#hcfecha').onchange=e=>{const v=e.target.value;if(!hcCambiar(()=>hsFecha=v))e.target.value=hsFecha};
+$('#hcarea').onchange=e=>{const v=e.target.value;if(!hcCambiar(()=>hcArea=v))e.target.value=hcArea};
+window.addEventListener('beforeunload',e=>{if(hcDirty()){e.preventDefault();e.returnValue=''}});
+
 /* ==== NAVEGACIÓN DEL MÓDULO ==== */
 let hsTab='prog';
-async function hsAbrir(t){hsTab=t||hsTab;
+async function hsAbrir(t){t=t||hsTab;
+  if(t!==hsTab&&hsTab==='cap'&&hcDirty()&&!confirm('Tienes cambios sin guardar en la captura. ¿Descartarlos?'))return;
+  if(t!=='cap'){hcEdit={};hcExtra=[]}hsTab=t;
   document.querySelectorAll('#subhojas button').forEach(b=>b.classList.toggle('on',b.dataset.hs===hsTab));
+  ['prog','cap'].forEach(k=>$('#hsv-'+k).classList.toggle('hide',k!==hsTab));
   try{stat('Cargando hojas single…');await hsCargarDatos();stat('')}catch(x){dbErr(x,'Hojas single')}
-  hsProgramaView();
+  if(hsTab==='cap')hsCapturaView();else hsProgramaView();
 }
 $('#subhojas').addEventListener('click',e=>{const b=e.target.closest('[data-hs]');if(b)hsAbrir(b.dataset.hs)});
 $('#hsfile').onchange=e=>{const f=e.target.files[0];if(f)hsSubirExcel(f);e.target.value=''};
