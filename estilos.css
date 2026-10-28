@@ -114,3 +114,4 @@ body.sidecol #side{display:none!important}
   #side .subm button.on{border-bottom-color:var(--acc);background:none}}
 .nocom .ccom{display:none}
 #hctab td{padding:5px 6px;vertical-align:middle}#hctab input{padding:4px 6px}
+.nohdet .hdet{display:none}

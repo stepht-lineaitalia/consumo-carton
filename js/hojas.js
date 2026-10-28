@@ -297,10 +297,10 @@ function hsDatos(){const reg=hsRegBy(),P=Object.fromEntries(hsProg.map(p=>[p.op,
       raro:!!p&&(!(p.kgPor>0)||!entero(p.hojasMueble)||!entero(p.muebles))}})}
 const HSF=['#hff','#hft','#hfw','#hfa','#hfs','#hfq'];
 function hsFiltrar(D){const f=$('#hff').value,t=$('#hft').value,w=$('#hfw').value,a=$('#hfa').value,s=$('#hfs').value,q=$('#hfq').value.trim().toUpperCase();
-  return D.filter(x=>(!f||x.fecha>=f)&&(!t||x.fecha<=t)&&(!w||x.sem===w)&&(!a||x.area===a)&&(!s||(s==='dif'?x.k==='mas'||x.k==='menos':x.k===s))&&(!q||(x.op+' '+x.modelo+' '+x.mp).toUpperCase().includes(q)))}
+  return D.filter(x=>(!f||x.fecha>=f)&&(!t||x.fecha<=t)&&(!w||x.sem===w)&&(!a||x.area===a)&&(!s||(s==='dif'?x.k==='mas'||x.k==='menos':s==='pcorr'?hsPorCorregir(x)&&!x.r.rev:x.k===s))&&(!q||(x.op+' '+x.modelo+' '+x.mp).toUpperCase().includes(q)))}
 function hsOpcFiltros(D){const s=$('#hfw'),v=s.value,W=[...new Set(D.map(x=>x.sem).filter(Boolean))].sort().reverse();
   s.innerHTML='<option value="">Todas</option>'+W.map(w=>`<option value="${w}">${typeof semTxt==='function'?semTxt(w):w}</option>`).join('');s.value=W.includes(v)?v:'';
-  const e=$('#hfs');if(!e.options.length)e.innerHTML='<option value="">Todos</option><option value="dif">Con diferencia (de más o de menos)</option>'+HS_ESTADOS.map(x=>`<option value="${x.k}">${x.t}</option>`).join('')}
+  const e=$('#hfs');if(!e.options.length)e.innerHTML='<option value="">Todos</option><option value="dif">Con diferencia (de más o de menos)</option>'+HS_ESTADOS.map(x=>`<option value="${x.k}">${x.t}</option>`).join('')+'<option value="pcorr">Pendientes de corregir</option>'}
 // Resumen numérico de un conjunto de OP (solo las capturadas con esperado entran en hojas y diferencias).
 function hsSum(L){const C=L.filter(x=>x.k!=='pend'&&x.k!=='sinprog'),E=C.reduce((s,x)=>s+x.E,0),R=C.reduce((s,x)=>s+x.R,0);
   return{n:L.length,capt:L.filter(x=>x.k!=='pend').length,pend:L.filter(x=>x.k==='pend').length,ok:C.filter(x=>x.k==='ok').length,mas:C.filter(x=>x.k==='mas').length,menos:C.filter(x=>x.k==='menos').length,
@@ -311,15 +311,22 @@ const pctTxt=(a,b)=>b?Math.round(a/b*100)+' %':'—';
 function hsKpis(s){return`<div class="kpis">${kpiH('OP en el periodo',s.n,'',`${s.capt} capturadas · ${s.pend} pendientes`)}${kpiH('Correctas',pctTxt(s.ok,s.C),'c-ok',`${s.ok} de ${s.C} capturadas`)}
   ${kpiH('Con diferencia',s.mas+s.menos,s.mas+s.menos?'pos':'',`${s.mas} de más · ${s.menos} de menos`)}${kpiH('Hojas esperadas → reales',`${nfmt(s.E)} → ${nfmt(s.R)}`,'',`Variación ${pct(s.R,s.E)}`)}
   ${kpiH('Diferencia neta (hojas)',sgn(s.net),s.net>0?'pos':s.net<0?'neg':'',`Absoluta ${nfmt(s.abs)} hojas`)}</div>`}
-let hsLim=100,hsOrden='fecha';
+let hsLim=100,hsOrden='fecha',hsDet=PREF.get('hs_tdet')==='1';
+// «Corregido» = marca de Administración en el Tablero para OP con diferencia o sin programar (ya se revisó/corrigió).
+// No cambia el estado ni los números; sirve para saber qué falta atender (filtro «Pendientes de corregir» y alertas).
+const hsPorCorregir=x=>!!x.r&&(x.k==='mas'||x.k==='menos'||x.k==='sinprog');
+function hsCeldaCorr(x){if(!hsPorCorregir(x))return'';
+  if(x.r.rev)return`<span class="chip ok">✓ Corregido</span><br><span class="mut">${esc(x.r.rev.por||'')} · ${dmy(x.r.rev.ts)}</span><br><a href="#" class="w" data-hsuncorr="${esc(x.op)}">Deshacer</a>`;
+  return`<button class="btn ghost sm w" data-hscorr="${esc(x.op)}" type="button">Marcar corregido</button>`}
 function hsTablero(){const D=hsDatos();hsOpcFiltros(D);const L=hsFiltrar(D),s=hsSum(L),n={};L.forEach(x=>n[x.k]=(n[x.k]||0)+1);
   const S=hsOrden==='dif'?[...L].sort((a,b)=>Math.abs(b.difT||0)-Math.abs(a.difT||0)||a.op.localeCompare(b.op)):[...L].sort((a,b)=>String(b.fecha).localeCompare(String(a.fecha))||a.op.localeCompare(b.op));
   $('#hfsum').textContent=`${L.length} de ${D.length} OP`+(HSF.some(x=>$(x).value.trim())?' (con filtros)':'');
   $('#hsv-tab').innerHTML=`<div class="card">${hsKpis(s)}<div class="leg">${HS_ESTADOS.map(x=>`<button type="button" data-hst="${x.k}" class="${$('#hfs').value===x.k?'on':''}"><i class="${x.c}" style="background:currentColor"></i>${x.t} <b>${n[x.k]||0}</b></button>`).join('')}</div>
-    <div class="row" style="margin:6px 0 4px;align-items:center"><span class="mut">Ordenar por</span><select id="hsord" style="width:auto"><option value="fecha"${hsOrden==='fecha'?' selected':''}>Fecha de programa</option><option value="dif"${hsOrden==='dif'?' selected':''}>Mayor diferencia</option></select></div>
-    <div class="scroll"><table class="tc"><thead><tr><th>Programa</th><th>Área</th><th>OP / Modelo</th><th class="n">Muebles</th><th class="n">Hojas/mueble<br><span class="mut">esp. → real</span></th><th class="n">Dif. por mueble</th><th class="n">Dif. total</th><th>Estado</th><th>Comentario</th></tr></thead><tbody>`+
+    <div class="row" style="margin:6px 0 4px;align-items:center"><span class="mut">Ordenar por</span><select id="hsord" style="width:auto"><option value="fecha"${hsOrden==='fecha'?' selected':''}>Fecha de programa</option><option value="dif"${hsOrden==='dif'?' selected':''}>Mayor diferencia</option></select>
+    <label class="mut" style="flex:0 0 auto;margin-left:auto;white-space:nowrap"><input type="checkbox" id="hsdet" style="width:auto"${hsDet?' checked':''}> Mostrar diferencia total, estado, comentario y corrección</label></div>
+    <div class="scroll"><table class="tc${hsDet?'':' nohdet'}"><thead><tr><th>Programa</th><th>Área</th><th>OP / Modelo</th><th class="n">Muebles</th><th class="n">Hojas/mueble<br><span class="mut">esp. → real</span></th><th class="n">Dif. por mueble</th><th class="n hdet">Dif. total</th><th class="hdet">Estado</th><th class="hdet">Comentario</th><th class="hdet">Corrección</th></tr></thead><tbody>`+
     (S.length?S.slice(0,hsLim).map(x=>`<tr class="r-${HSE[x.k].c.slice(3)}"><td>${dmyISO(x.fecha)}</td><td>${AREA_TXT[x.area]||'—'}</td><td><b>${esc(x.modelo)}</b><br><span class="mut">${esc(x.op)}</span>${x.raro?'<br><span class="pos" style="font-size:12px">Programación por revisar</span>':''}</td>
-      <td class="n">${x.mu?nfmt(x.mu):'—'}</td><td class="n">${x.esp!=null?nfmt(x.esp):'—'} → ${x.real!=null?nfmt(x.real):'—'}</td><td class="n ${x.difM>hsTol?'pos':x.difM<-hsTol?'neg':''}">${sgn(x.difM)}</td><td class="n">${sgn(x.difT)}</td><td>${hsChip(x.k)}</td><td class="mut" style="white-space:normal;min-width:120px">${esc(x.com)}</td></tr>`).join(''):'<tr><td colspan="9" class="mut">No hay OP con estos filtros.</td></tr>')+
+      <td class="n">${x.mu?nfmt(x.mu):'—'}</td><td class="n">${x.esp!=null?nfmt(x.esp):'—'} → ${x.real!=null?nfmt(x.real):'—'}</td><td class="n"><span class="${x.difM>hsTol?'pos':x.difM<-hsTol?'neg':''}">${sgn(x.difM)}</span>${!hsDet&&x.r&&x.r.rev?' <span class="c-ok" title="Corregido">✓</span>':''}${!hsDet&&x.com?` <span title="${esc(x.com)}">💬</span>`:''}</td><td class="n hdet">${sgn(x.difT)}</td><td class="hdet">${hsChip(x.k)}</td><td class="mut hdet" style="white-space:normal;min-width:120px">${esc(x.com)}</td><td class="hdet ccor">${hsCeldaCorr(x)}</td></tr>`).join(''):'<tr><td colspan="10" class="mut">No hay OP con estos filtros.</td></tr>')+
     `</tbody></table></div>${S.length>hsLim?`<p><button class="btn ghost sm" id="hsmas" type="button">Mostrar más (${S.length-hsLim})</button></p>`:''}</div>`}
 // Análisis: resumen, por área, por semana, OP con mayor diferencia, por modelo y alertas.
 function hsAnalisis(){const D=hsDatos();hsOpcFiltros(D);const L=hsFiltrar(D),s=hsSum(L);$('#hfsum').textContent=`${L.length} de ${D.length} OP`+(HSF.some(x=>$(x).value.trim())?' (con filtros)':'');
@@ -336,6 +343,7 @@ function hsAnalisis(){const D=hsDatos();hsOpcFiltros(D);const L=hsFiltrar(D),s=h
   const al=[];const raros=L.filter(x=>x.raro);if(raros.length)al.push(['at',`<b>${raros.length} OP con programación por revisar en Dynamics</b> (Cantidad por en 0 o fracciones de hoja/mueble): ${raros.slice(0,8).map(x=>esc(x.op)).join(', ')}${raros.length>8?'…':''}`]);
   const hoy=ymd(new Date()),viejas=L.filter(x=>x.k==='pend'&&x.fecha&&x.fecha<hoy);if(viejas.length)al.push(['at',`<b>${viejas.length} OP pendientes de capturar</b> con fecha de programa ya pasada.`]);
   if(s.sp)al.push(['at',`<b>${s.sp} OP sin programar</b> (agregadas a mano, no vienen en el programa del ERP).`]);
+  const pc=L.filter(x=>hsPorCorregir(x)&&!x.r.rev).length;if(pc)al.push(['at',`<b>${pc} OP con diferencia pendientes de corregir</b> (en Tablero usa el filtro «Pendientes de corregir»).`]);
   const rep=M.filter(m=>m.d>=2);if(rep.length)al.push(['at',`<b>${rep.length} modelo(s) con diferencia en 2 o más OP</b>: ${rep.slice(0,6).map(m=>esc(m.k)).join(', ')}. Revisar si la lista de materiales del ERP está bien.`]);
   if(!al.length)al.push(['ok','Sin alertas en el periodo filtrado.']);
   $('#hsv-ana').innerHTML=
@@ -365,7 +373,12 @@ HSF.forEach(s=>$(s).addEventListener(s==='#hfq'?'input':'change',hsRefrescar));
 $('#hfclr').onclick=()=>{HSF.forEach(s=>$(s).value='');hsRefrescar()};
 $('#hfx').onclick=()=>hsExcel();
 $('#hsv-tab').addEventListener('click',e=>{const b=e.target.closest('[data-hst]');if(b){$('#hfs').value=$('#hfs').value===b.dataset.hst?'':b.dataset.hst;hsTablero();return}if(e.target.id==='hsmas'){hsLim+=100;hsTablero()}});
-$('#hsv-tab').addEventListener('change',e=>{if(e.target.id==='hsord'){hsOrden=e.target.value;hsTablero()}});
+$('#hsv-tab').addEventListener('change',e=>{if(e.target.id==='hsord'){hsOrden=e.target.value;hsTablero()}
+  if(e.target.id==='hsdet'){hsDet=e.target.checked;PREF.set('hs_tdet',hsDet?'1':'');hsTablero()}});
+// Marcar / deshacer «Corregido» (relee antes de guardar para no pisar cambios de otro usuario).
+$('#hsv-tab').addEventListener('click',async e=>{const op=e.target.dataset.hscorr||e.target.dataset.hsuncorr;if(!op)return;e.preventDefault();
+  try{await hsCargarDatos();const r=hsRegBy()[op];if(!r)return;await HDB.saveRegistro({...r,rev:e.target.dataset.hscorr?{por:quien(),ts:Date.now()}:null});await hsCargarDatos();hsTablero()}
+  catch(x){dbErr(x,'No se pudo marcar')}});
 
 /* ==== NAVEGACIÓN DEL MÓDULO ==== */
 let hsTab='prog';

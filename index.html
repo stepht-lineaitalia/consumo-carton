@@ -4,13 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Consumo de cartón</title>
-<meta name="version" content="5.9.0">
+<meta name="version" content="5.9.1">
 <link rel="stylesheet" href="vendor/fonts.css">
 <script src="vendor/xlsx.full.min.js"></script>
 <script src="vendor/supabase.min.js"></script>
 <!-- config.js: URL y clave pública del proyecto de Supabase. Vacío = la app trabaja solo en el navegador. Ver GUIA-NUBE.md -->
 <script src="config.js"></script>
-<link rel="stylesheet" href="estilos.css?v=5.9.0">
+<link rel="stylesheet" href="estilos.css?v=5.9.1">
 </head>
 <body>
 <div class="shell">
@@ -119,7 +119,7 @@
 <div class="card hide" id="hsflt"><div class="row">
 <label>Programa desde<input type="date" id="hff"></label><label>Programa hasta<input type="date" id="hft"></label>
 <label>Semana de programa<select id="hfw"></select></label><label>Área<select id="hfa"><option value="">Todas</option><option value="MUEBLES">Muebles</option><option value="LIBREROS">Libreros</option></select></label>
-<label>Estado<select id="hfs"></select></label><label style="flex:2 1 160px">OP o modelo<input id="hfq" placeholder="Filtrar…" autocomplete="off"></label>
+<label>Estado<select id="hfs"></select></label><label style="flex:2 1 160px">Buscar OP o modelo<input id="hfq" placeholder="Ej. OP09253006 o C2-2206" autocomplete="off"></label>
 <button class="btn ghost sm" id="hfclr" type="button">Limpiar filtros</button></div>
 <div class="row" style="margin-top:10px;align-items:center"><button class="btn ghost sm" id="hfx" type="button">Exportar Excel (filtro actual)</button><span class="mut" id="hfsum"></span></div></div>
 <div id="hsv-tab" class="hide"></div><div id="hsv-ana" class="hide"></div>
@@ -138,9 +138,9 @@
 </main>
 </div>
 
-<script src="js/comun.js?v=5.9.0"></script>
-<script src="js/carton.js?v=5.9.0"></script>
-<script src="js/hojas.js?v=5.9.0"></script>
-<script src="js/app.js?v=5.9.0"></script>
+<script src="js/comun.js?v=5.9.1"></script>
+<script src="js/carton.js?v=5.9.1"></script>
+<script src="js/hojas.js?v=5.9.1"></script>
+<script src="js/app.js?v=5.9.1"></script>
 </body>
 </html>
