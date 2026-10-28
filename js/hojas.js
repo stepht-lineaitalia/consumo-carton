@@ -130,16 +130,19 @@ function hsProgramaView(keepMsg){
   const fs=[...new Set(hsProg.map(p=>p.fecha).filter(Boolean))].sort().reverse();
   if(!fs.includes(hsFecha))hsFecha=hsFechaDefault([...fs].reverse());
   const sel=$('#hsfecha');sel.innerHTML=fs.length?fs.map(f=>`<option value="${f}"${f===hsFecha?' selected':''}>${dmyISO(f)}</option>`).join(''):'<option value="">— Sin programa cargado —</option>';
-  const L=hsDelDia(hsFecha),c=k=>L.filter(p=>p.area===k).length;
-  $('#hsinfo').innerHTML=fs.length?`${HS.orden.map(k=>`<b>${AREA_TXT[k]}:</b> ${c(k)} OP`).join(' · ')}`:'Carga primero el Excel del ERP.';
-  $('#hspdf').disabled=!L.length;
+  const D=hsDelDia(hsFecha),c=k=>D.filter(p=>p.area===k).length,B=hsBusca($('#hsq').value),L=B||D;
+  $('#hsinfo').innerHTML=fs.length?`${HS.orden.map(k=>`<b>${AREA_TXT[k]}:</b> ${c(k)} OP`).join(' · ')}`+(B?` · <b style="color:var(--acc)">Búsqueda: ${B.length} resultado(s) en todas las fechas</b>`:''):'Carga primero el Excel del ERP.';
+  $('#hspdf').disabled=!D.length;
   const conReal=new Set(hsReg.map(r=>r.op));
-  $('#hstabla').innerHTML=L.length?`<div class="scroll"><table class="tc"><thead><tr><th>Área</th><th>OP</th><th>Modelo</th><th class="n">Muebles</th><th class="n">Hojas por mueble</th><th class="n">Hojas totales</th><th>Real</th></tr></thead><tbody>`+
+  $('#hstabla').innerHTML=!L.length&&B?'<p class="mut">Ninguna OP o modelo coincide con la búsqueda.</p>':L.length?`<div class="scroll"><table class="tc"><thead><tr>${B?'<th>Programa</th>':''}<th>Área</th><th>OP</th><th>Modelo</th><th class="n">Muebles</th><th class="n">Hojas por mueble</th><th class="n">Hojas totales</th><th>Real</th></tr></thead><tbody>`+
     L.map(p=>{const raro=!(p.kgPor>0)||!entero(p.hojasMueble)||!entero(p.muebles);
-      return`<tr${raro?' class="fx"':''}><td>${AREA_TXT[p.area]}</td><td>${esc(p.op)}</td><td>${esc(p.modelo)}</td><td class="n">${nfmt(p.muebles)}</td><td class="n">${nfmt(p.hojasMueble)}</td><td class="n">${nfmt(p.muebles*p.hojasMueble)}</td><td>${conReal.has(p.op)?'<span class="chip ok">Capturado</span>':'<span class="mut">Pendiente</span>'}</td></tr>`}).join('')+
+      return`<tr${raro?' class="fx"':''}>${B?`<td>${dmyISO(p.fecha)}</td>`:''}<td>${AREA_TXT[p.area]}</td><td>${esc(p.op)}</td><td>${esc(p.modelo)}</td><td class="n">${nfmt(p.muebles)}</td><td class="n">${nfmt(p.hojasMueble)}</td><td class="n">${nfmt(p.muebles*p.hojasMueble)}</td><td>${conReal.has(p.op)?'<span class="chip ok">Capturado</span>':'<span class="mut">Pendiente</span>'}</td></tr>`}).join('')+
     `</tbody></table></div>`+(L.some(p=>!(p.kgPor>0)||!entero(p.hojasMueble)||!entero(p.muebles))?`<p class="mut" style="margin:6px 0 0">Renglones en rojo: programación por revisar en Dynamics.</p>`:''):'';
   if(!keepMsg&&!hsProg.length)hsMsg('');
 }
+// Búsqueda por OP o modelo: busca en TODO el programa (cualquier fecha y área), sin importar la fecha elegida.
+const hsBusca=q=>{q=String(q||'').trim().toUpperCase();return q?hsProg.filter(p=>p.op.toUpperCase().includes(q)||String(p.modelo).toUpperCase().includes(q))
+  .sort((a,b)=>String(b.fecha).localeCompare(String(a.fecha))||a.op.localeCompare(b.op)):null};
 const hsDelDia=f=>hsProg.filter(p=>p.fecha===f).sort((a,b)=>HS.orden.indexOf(a.area)-HS.orden.indexOf(b.area)||a.op.localeCompare(b.op));
 
 /* ==== PDF DE PRODUCCIÓN ====  Un archivo, una página (o más si no cabe) por área: Muebles y luego Libreros.
@@ -182,7 +185,7 @@ async function hsGenerarPDF(){
    posteriores (sección «Pendientes de fechas anteriores») hasta que se registren. Lo ya capturado se puede corregir;
    si borras el número de una OP capturada y guardas, el registro se elimina (vuelve a Pendiente). */
 let hsTol=0;                                     // tolerancia en hojas por mueble (etapa 6: configurable)
-let hcArea='MUEBLES',hcEdit={},hcExtra=[];
+let hcArea='MUEBLES',hcEdit={},hcExtra=[],hcComV=PREF.get('hs_com')==='1';
 const HC_EST={ok:{k:'ok',t:'Correcto'},dif:{k:'cambcons',t:'Diferencia'},pend:{k:'pend',t:'Pendiente'},sinprog:{k:'sinprog',t:'Sin programar'}};
 const hsRegBy=()=>{const m={};[...hsReg].sort((a,b)=>a.ts-b.ts).forEach(r=>m[r.op]=r);return m};
 const hcNum=v=>{const t=String(v==null?'':v).trim().replace(',','.');return t===''?null:(/^\d+(\.\d+)?$/.test(t)?parseFloat(t):NaN)};
@@ -200,31 +203,35 @@ function hcFilas(){
 }
 function hcRow(p,o){o=o||{};const op=p.op,esp=p.kgPor>0?p.hojasMueble:null,rv=hcVal(op,'real'),real=hcNum(rv),e=isNaN(real)?null:hsEstado(esp,real);
   const dif=real!=null&&!isNaN(real)&&esp!=null?real-esp:null,ed=hcEdit[op]&&Object.keys(hcEdit[op]).length;
-  return`<tr class="r-${e?e.k:'err'}" data-op="${esc(op)}"><td>${esc(op)}${o.fecha?`<br><span class="mut">Programa ${dmyISO(p.fecha)}</span>`:''}</td><td>${esc(p.modelo||'')}</td>
+  return`<tr class="r-${e?e.k:'err'}" data-op="${esc(op)}"><td>${esc(op)}${o.fecha?`<br><span class="mut">Programa ${dmyISO(p.fecha)}${o.area?' · '+AREA_TXT[p.area]:''}</span>`:''}</td><td>${esc(p.modelo||'')}</td>
     <td class="n">${p.muebles!=null&&p.muebles!==''?nfmt(+p.muebles):'—'}</td><td class="n">${esp!=null?nfmt(esp):'—'}</td>
     <td><input class="hcreal" data-op="${esc(op)}" inputmode="decimal" autocomplete="off" value="${esc(rv)}" style="width:80px${isNaN(real)?';border-color:var(--bad)':''}"></td>
     <td class="n hcdif">${dif==null?'—':(dif>0?'+':'')+nfmt(dif)}</td>
-    <td class="hcest">${e?`<span class="chip st st-${e.k}">${e.t}</span>`:'<span class="chip err">Número inválido</span>'}${ed?' <span class="mut" title="Sin guardar">●</span>':''}</td>
-    <td><input class="hccom" data-op="${esc(op)}" autocomplete="off" value="${esc(hcVal(op,'com'))}" placeholder="Opcional" style="min-width:120px"></td></tr>`}
+    <td class="hcest">${e?`<span class="chip st st-${e.k}">${e.t}</span>`:'<span class="chip err">Número inválido</span>'}${ed?' <span class="mut" title="Sin guardar">●</span>':''}${!hcComV&&hcVal(op,'com').trim()?` <span title="${esc(hcVal(op,'com'))}">💬</span>`:''}</td>
+    <td class="ccom"><input class="hccom" data-op="${esc(op)}" autocomplete="off" value="${esc(hcVal(op,'com'))}" placeholder="Opcional" style="min-width:120px"></td></tr>`}
+const HC_HEAD='<thead><tr><th>OP</th><th>Modelo</th><th class="n">Muebles</th><th class="n">Hojas por mueble</th><th>Reales por mueble</th><th class="n">Diferencia</th><th>Estado</th><th class="ccom">Comentario</th></tr></thead>';
 function hsCapturaView(){
   const fs=[...new Set(hsProg.map(p=>p.fecha).filter(Boolean))].sort().reverse();
   if(!fs.includes(hsFecha))hsFecha=hsFechaDefault([...fs].reverse());
   $('#hcfecha').innerHTML=fs.length?fs.map(f=>`<option value="${f}"${f===hsFecha?' selected':''}>${dmyISO(f)}</option>`).join(''):'<option value="">— Sin programa cargado —</option>';
-  $('#hcarea').value=hcArea;
+  $('#hcarea').value=hcArea;$('#hccomv').checked=hcComV;
+  const B=hsBusca($('#hcq').value);$('#hcfecha').disabled=$('#hcarea').disabled=!!B;
+  if(B){$('#hcinfo').innerHTML=`<b style="color:var(--acc)">Búsqueda: ${B.length} resultado(s)</b> en todas las fechas y áreas. Borra la búsqueda para volver a la fecha y área elegidas.`;
+    $('#hctabla').innerHTML=B.length?`<div class="scroll"><table id="hctab" class="tc${hcComV?'':' nocom'}">${HC_HEAD}<tbody>${B.map(p=>hcRow(p,{fecha:1,area:1})).join('')}</tbody></table></div>`:'<p class="mut">Ninguna OP o modelo coincide con la búsqueda.</p>';return}
   const {dia,pend,sinp}=hcFilas(),reg=hsRegBy(),todas=[...dia,...pend];
   const capt=todas.filter(p=>reg[p.op]).length,dif=todas.filter(p=>reg[p.op]&&p.kgPor>0&&Math.abs(reg[p.op].real-p.hojasMueble)>hsTol+1e-9).length;
   $('#hcinfo').innerHTML=fs.length?`<b>${dia.length}</b> OP de ${AREA_TXT[hcArea].toLowerCase()} en esta fecha · ${dia.filter(p=>reg[p.op]).length} capturadas · ${dia.filter(p=>!reg[p.op]).length} pendientes`+
     (dif?` · <b style="color:var(--bad)">${dif} con diferencia</b>`:'')+(pend.length?` · <b style="color:var(--warn)">${pend.length} pendientes de fechas anteriores</b>`:''):'Carga primero el programa en «Programa».';
-  const head='<thead><tr><th>OP</th><th>Modelo</th><th class="n">Muebles</th><th class="n">Hojas por mueble</th><th>Reales por mueble</th><th class="n">Diferencia</th><th>Estado</th><th>Comentario</th></tr></thead>';
+  const head=HC_HEAD;
   let h=dia.map(p=>hcRow(p)).join('')+sinp.map(r=>hcRow({op:r.op,modelo:r.prog.modelo,muebles:r.prog.muebles,kgPor:0})).join('');
   if(pend.length)h+=`<tr><td colspan="8" style="background:var(--warnbg);color:var(--warn);font-weight:600">Pendientes de fechas anteriores (${pend.length})</td></tr>`+pend.map(p=>hcRow(p,{fecha:1})).join('');
   h+=hcExtra.map((x,i)=>`<tr class="r-pend"><td colspan="8"><div class="row"><label>OP agregada a mano<input class="hcxop" data-i="${i}" value="${esc(x.op)}" placeholder="OP…" autocomplete="off"></label><label>Modelo<input class="hcxmod" data-i="${i}" value="${esc(x.modelo)}" autocomplete="off"></label><label>Muebles<input class="hcxmu" data-i="${i}" value="${esc(x.muebles)}" inputmode="numeric"></label><label>Reales por mueble<input class="hcxreal" data-i="${i}" value="${esc(x.real)}" inputmode="decimal"></label><button class="btn ghost sm" data-hcxdel="${i}" type="button">Quitar</button></div></td></tr>`).join('');
-  $('#hctabla').innerHTML=dia.length||pend.length||sinp.length||hcExtra.length?`<div class="scroll"><table id="hctab" class="tc">${head}<tbody>${h}</tbody></table></div>`:'<p class="mut">No hay OP de esta área para la fecha elegida.</p>';
+  $('#hctabla').innerHTML=dia.length||pend.length||sinp.length||hcExtra.length?`<div class="scroll"><table id="hctab" class="tc${hcComV?'':' nocom'}">${head}<tbody>${h}</tbody></table></div>`:'<p class="mut">No hay OP de esta área para la fecha elegida.</p>';
 }
 const hcDirty=()=>Object.values(hcEdit).some(e=>Object.keys(e).length)||hcExtra.some(x=>x.op||x.real);
 function hcSet(op,k,v){const r=hsRegBy()[op],g=r?(k==='real'?String(r.real):(r.com||'')):'';const e=hcEdit[op]||(hcEdit[op]={});if(v===g)delete e[k];else e[k]=v}
 function hcRepinta(tr){const op=tr.dataset.op,p=hsProg.find(x=>x.op===op)||{op,kgPor:0,modelo:(hsRegBy()[op]||{prog:{}}).prog.modelo,muebles:(hsRegBy()[op]||{prog:{}}).prog.muebles};
-  const pend=!!tr.querySelector('.mut')&&tr.cells[0].querySelector('.mut');const tmp=document.createElement('tbody');tmp.innerHTML=hcRow(p,{fecha:pend});const n=tmp.firstElementChild;
+  const pend=!!tr.querySelector('.mut')&&tr.cells[0].querySelector('.mut');const tmp=document.createElement('tbody');tmp.innerHTML=hcRow(p,{fecha:pend,area:pend});const n=tmp.firstElementChild;
   tr.className=n.className;tr.querySelector('.hcdif').innerHTML=n.querySelector('.hcdif').innerHTML;tr.querySelector('.hcest').innerHTML=n.querySelector('.hcest').innerHTML;
   tr.querySelector('.hcreal').style.borderColor=n.querySelector('.hcreal').style.borderColor}
 const hcMsg=(h,bad)=>{const e=$('#hcmsg');e.innerHTML=h;e.style.color=bad?'var(--bad)':''};
@@ -263,6 +270,10 @@ $('#hctabla').addEventListener('keydown',e=>{if(e.key!=='Enter'||!e.target.class
 $('#hctabla').addEventListener('click',e=>{const i=e.target.dataset.hcxdel;if(i==null)return;hcExtra.splice(+i,1);hsCapturaView()});
 $('#hcadd').onclick=()=>{hcExtra.push({op:'',modelo:'',muebles:'',real:''});hsCapturaView();const I=document.querySelectorAll('#hctabla .hcxop');if(I.length)I[I.length-1].focus()};
 $('#hcsave').onclick=()=>hcGuardar();
+$('#hcq').oninput=()=>hsCapturaView();   // los cambios sin guardar se conservan al buscar (van por OP)
+$('#hsq').oninput=()=>hsProgramaView(true);
+// Comentarios ocultos por defecto (se recuerda en este equipo); 💬 indica que la OP tiene comentario (pasa el mouse para leerlo).
+$('#hccomv').onchange=e=>{hcComV=e.target.checked;PREF.set('hs_com',hcComV?'1':'');hsCapturaView()};
 const hcCambiar=fn=>{if(hcDirty()&&!confirm('Tienes cambios sin guardar en la captura. ¿Descartarlos?'))return false;hcEdit={};hcExtra=[];hcMsg('');fn();hsCapturaView();return true};
 $('#hcfecha').onchange=e=>{const v=e.target.value;if(!hcCambiar(()=>hsFecha=v))e.target.value=hsFecha};
 $('#hcarea').onchange=e=>{const v=e.target.value;if(!hcCambiar(()=>hcArea=v))e.target.value=hcArea};

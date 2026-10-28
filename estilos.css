@@ -103,3 +103,4 @@ body.admin #side{position:sticky;top:0;height:100vh;overflow-y:auto}
   #side .mh{width:auto;flex:0 0 auto}
   #side .subm{flex-direction:row;flex-wrap:wrap;order:9;width:100%;margin:2px 0 0}
   #side .subm button{flex:1 1 auto}}
+.nocom .ccom{display:none}
