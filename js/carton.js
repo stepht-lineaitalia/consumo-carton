@@ -511,11 +511,21 @@ async function guardar(sinFalta){
     dbErr(e);
   }finally{saving=false;$('#save').disabled=false}
 }
-$('#clear').onclick=()=>{if(W){const k=W.kind==='op'?W.op:W.modelo;editId=null;start(W.kind,k)}};
+$('#clear').onclick=()=>{if(!W)return;if(editId!=null){editId=null;W=null;$('#work').classList.add('hide');$('#savemsg').textContent='Edición cancelada: el registro quedó como estaba.';misHoy();return}
+  const k=W.kind==='op'?W.op:W.modelo;editId=null;start(W.kind,k)};
 // «Mis capturas de hoy»: solo para confirmar que se guardó (sin estados ni diferencias).
+// Planta puede EDITAR sus propios registros del día (los de «Mis capturas de hoy»): si hay lista de operadores, solo los suyos.
+// Se abre la misma captura con lo guardado; al guardar se reemplaza el registro (misma fecha de captura).
+const editaHoy=r=>ymd(new Date(r.ts))===ymd(new Date())&&(r.kind!=='op'||!!cat[r.op])&&(!operadores.length||(!!operador&&r.operador===operador));
+$('#hoy').addEventListener('click',async e=>{const id=e.target.dataset.edhoy;if(!id)return;
+  if(W&&!confirm('Tienes una captura abierta. ¿Descartarla para editar este registro?'))return;
+  await reload();const r=reports.find(x=>String(x.id)===id);if(!r||!editaHoy(r)){alert('Ese registro ya no se puede editar.');misHoy();return}
+  $('#kind').value=r.kind;$('#kind').onchange();start(r.kind,r.kind==='op'?r.op:r.modelo,r);misHoy();
+  $('#savemsg').innerHTML='<b>Editando un registro guardado.</b> Corrige lo necesario y da «Guardar». Si no quieres cambiar nada, da «Limpiar» y el registro queda como estaba.';
+  const w=$('#work');if(w.scrollIntoView)w.scrollIntoView({block:'start'})});
 function misHoy(){
   const hoy=ymd(new Date()),L=reports.filter(r=>ymd(new Date(r.ts))===hoy&&(!operador||!operadores.length||r.operador===operador)).sort((a,b)=>b.ts-a.ts);
-  $('#hoy').innerHTML=`<h2>Mis capturas de hoy · ${new Date().toLocaleDateString('es-MX',{weekday:'long'})} ${fISO(hoy)} <span class="mut">(${L.length})</span></h2>`+(L.length?L.map(r=>`<div class="line"><span class="mut">${new Date(r.ts).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'})}</span> · <b>${esc(r.modelo)}</b> · ${r.kind==='op'?esc(r.op):esc(KINDS[r.kind])} · ${r.per.filter(p=>p.R>0).map(p=>`${p.a} cm × ${p.cr} caja(s)`).join(', ')}</div>`).join(''):'<p class="mut">Todavía no hay capturas hoy.</p>');
+  $('#hoy').innerHTML=`<h2>Mis capturas de hoy · ${new Date().toLocaleDateString('es-MX',{weekday:'long'})} ${fISO(hoy)} <span class="mut">(${L.length})</span></h2>`+(L.length?L.map(r=>`<div class="line"><span class="mut">${new Date(r.ts).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'})}</span> · <b>${esc(r.modelo)}</b> · ${r.kind==='op'?esc(r.op):esc(KINDS[r.kind])} · ${r.per.filter(p=>p.R>0).map(p=>`${p.a} cm × ${p.cr} caja(s)`).join(', ')}${editaHoy(r)?` <button class="btn ghost sm" type="button" data-edhoy="${r.id}">Editar</button>`:''}${editId!=null&&String(editId)===String(r.id)?' <span class="chip pend">Editando</span>':''}</div>`).join(''):'<p class="mut">Todavía no hay capturas hoy.</p>');
 }
 
 // Tablero, análisis y exportación  (ADMINISTRACIÓN = INFORMACIÓN ORDENADA)
@@ -783,7 +793,7 @@ function analysis(){
   $('#dsum').innerHTML=`${cnt(L)}: ${s.B.length} OP analizadas · ${s.inc.length} incompletos · ${s.incl.length} inclusiones · ${s.ingr.length} de ingeniería`;
   if(!s.B.length&&!s.sn.length){$('#ana').innerHTML='<div class="card mut">No hay registros con estos filtros para analizar.</div>';return}
   const lg1='<p class="mut"><i class="sw e"></i> Esperado &nbsp;<i class="sw re"></i> Real</p>',lg2='<p class="mut"><i class="sw nb"></i> Consumió de menos &nbsp;<i class="sw pb"></i> Consumió de más</p>';
-  const A=alertas(L,s,M),okp=s.B.length?s.ok/s.B.length*100:0;
+  const A0=alertas(L,s,M),AS=alertasSeparar(A0,1),A=AS.vis,okp=s.B.length?s.ok/s.B.length*100:0;   // A = alertas no descartadas
   // 1 · Resumen ejecutivo: conclusión automática (no repite los indicadores); solo situación general, alertas,
   //     modelos y cartones que requieren atención y desviaciones relevantes. Ver resumenEjecutivo().
   const r1=resumenEjecutivo(L,s,M,A,net,abs);
@@ -796,7 +806,7 @@ function analysis(){
     <div class="kpis">${K('Sin programar en ERP',fmt(s.Rsp)+' m²',s.Rsp?'c-sinprog':'',`${s.sp.length} OP · ${new Set(s.sp.map(r=>r.modelo)).size} modelo(s)`)}${K('Inclusiones',fmt(s.Rinc)+' m²','',s.incl.length+' reg.')}${K('Caja de Ingeniería',fmt(s.Ring)+' m²','',s.ingr.length+' reg.')}${K('Consumo real total',fmt(s.Rtot)+' m²','','comparable + fuera del comparativo')}</div>
     <p class="mut">No tienen m² esperados: suman al consumo real, no a las diferencias ni a la compensación. Excluidos del comparativo: ${s.inc.length} incompleto(s).</p>`;
   // 3 · Alertas
-  const r3=A.length?A.map(([c,t,go])=>`<div class="al ${c}"><span>${t}</span>${go?`<button class="btn ghost sm" type="button" data-go="${esc(go)}">Ver</button>`:''}</div>`).join(''):'<p class="mut">Sin alertas con estos filtros.</p>';
+  const r3=(A.length?A.map(([c,t,go])=>`<div class="al ${c}"><span>${t}</span><span class="alb">${go?`<button class="btn ghost sm" type="button" data-go="${esc(go)}">Ver</button>`:''}${aloBtn(t)}</span></div>`).join(''):`<p class="mut">${AS.ocu.length?'Sin alertas pendientes.':'Sin alertas con estos filtros.'}</p>`)+aloRest(AS.ocu,1);
   // 4 · Esperado vs real + cruce semana × coincidencia
   const T=s.cruceTot,celda=c=>c.n?`${c.n} · <b>${sgm(c.R-c.E)}</b> <span class="mut">${pct(c.R,c.E)}</span>`:'<span class="mut">—</span>';
   const fila=w=>`<tr><td><b>${esc(w.k)}</b></td><td>${w.n}</td><td>${w.ok}</td><td>${celda(w.mismo)}</td><td>${celda(w.cambio)}</td><td>${celda(w.extra)}</td><td><b>${sgm(w.R-w.E)}</b> <span class="mut">${pct(w.R,w.E)}</span></td></tr>`;
@@ -819,6 +829,9 @@ function analysis(){
   const ds=$('#dsem');if(ds)ds.onchange=()=>{diaSem=ds.value;const y=window.scrollY;analysis();try{window.scrollTo(0,y)}catch(x){}};
 }
 // «Ver» en una alerta: conserva el periodo filtrado y abre la pestaña donde se revisa, ya filtrada.
+// Descartar / volver a mostrar alertas (ver alertasMarcar en comun.js)
+$('#ana').addEventListener('click',async e=>{const off=e.target.dataset.aloff,on=e.target.dataset.alon;if(!off&&!on)return;e.preventDefault();
+  try{await alertasMarcar(off?[off]:on.split(','),!!off)}catch(x){dbErr(x,'No se pudo guardar')}analysis()});
 $('#ana').onclick=e=>{const g=e.target.dataset.go;if(g==null)return;const [t,v]=g.split('|');
   $('#fs').value='';$('#fq').value='';if(t==='2'){if(v.startsWith('q:'))$('#fq').value=v.slice(2);else $('#fs').value=v}tab(+t)};
 

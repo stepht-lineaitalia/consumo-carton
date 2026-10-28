@@ -15,3 +15,22 @@ function isoDate(v){
   const m=s.match(/(\d+)\/(\d+)\/(\d+)/);if(m)return(m[3].length<4?'20'+m[3]:m[3])+'-'+p2(m[2])+'-'+p2(m[1]);
   return ymd(new Date());
 }
+
+/* ==== ALERTAS DESCARTADAS (Cartón y Hojas single) ====
+   Administración puede descartar una alerta con «×». Se identifica por su texto: si la situación cambia (otro número de OP,
+   otros modelos…) la alerta vuelve a aparecer. Se guarda en la configuración de la app (la ven todos los administradores);
+   en modo local, en este navegador. */
+let ALO={};
+const aloKey=html=>{const t=String(html).replace(/<[^>]*>/g,'').replace(/\s+/g,' ').trim();let h=5381;for(let i=0;i<t.length;i++)h=((h<<5)+h+t.charCodeAt(i))|0;return'a'+(h>>>0).toString(36)};
+async function alertasLeer(){try{if(NUBE){const {data}=await SBC.from('config').select('v').eq('k','alertas_ocultas');ALO=data&&data[0]&&data[0].v&&typeof data[0].v==='object'?data[0].v:{}}
+  else ALO=JSON.parse(localStorage.getItem('alertas_ocultas')||'{}')||{}}catch(e){ALO={}}}
+async function alertasGuardar(){if(NUBE){const {error}=await SBC.from('config').upsert([{k:'alertas_ocultas',v:ALO,updated_at:new Date().toISOString()}],{onConflict:'k'});if(error)throw new Error(error.message)}
+  else localStorage.setItem('alertas_ocultas',JSON.stringify(ALO))}
+// Descarta (on=true) o restaura una o varias alertas; relee antes para no pisar lo que descartó otro administrador.
+async function alertasMarcar(keys,on){await alertasLeer();keys.forEach(k=>{if(on)ALO[k]={por:typeof quien==='function'?quien():'',ts:Date.now()};else delete ALO[k]});
+  // limpieza: lo descartado hace más de 120 días ya no se guarda
+  const lim=Date.now()-120*864e5;Object.keys(ALO).forEach(k=>{if(!(ALO[k]&&ALO[k].ts>lim))delete ALO[k]});await alertasGuardar()}
+// Divide una lista de alertas [*, html, …] (el html en la posición i) en visibles y descartadas.
+const alertasSeparar=(A,i)=>{const vis=[],ocu=[];A.forEach(a=>(ALO[aloKey(a[i])]?ocu:vis).push(a));return{vis,ocu}};
+const aloBtn=html=>`<button class="aloff w" type="button" data-aloff="${aloKey(html)}" title="Descartar esta alerta" aria-label="Descartar alerta">×</button>`;
+const aloRest=(ocu,i)=>ocu.length?`<p class="mut" style="margin:6px 0 0">${ocu.length} alerta(s) descartada(s) · <a href="#" class="w" data-alon="${ocu.map(a=>aloKey(a[i])).join(',')}">Volver a mostrar</a></p>`:'';

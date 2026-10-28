@@ -62,7 +62,7 @@ $('#saveopr').onclick=async()=>{const L=[...new Set($('#oprcfg').value.split('\n
   try{await DB.saveOperadores(L);operadores=L;showOperador();cfgMsg(L.length?`Operadores guardados (${L.length}).`:'Lista vacía: no se preguntará quién captura.')}catch(x){dbErr(x,'No se pudieron guardar los operadores')}};
 async function cargarApp(){
   aplicarRol();stat('Cargando datos…');
-  try{const [st,c,r,o]=await Promise.all([DB.getSettings(),DB.getCatalog(),DB.listReports(),DB.listOperadores()]);
+  try{const [st,c,r,o]=await Promise.all([DB.getSettings(),DB.getCatalog(),DB.listReports(),DB.listOperadores(),alertasLeer()]);
     tolv=st.tol;cfg={tol:st.tol,cartones:st.cartones||cfg.cartones,prefijos:st.prefijos||cfg.prefijos,excluir:st.excluir||cfg.excluir,modelosExc:st.modelosExc||cfg.modelosExc,seguimiento:st.seguimiento||{},respaldo:st.respaldo||null};cat=c;reports=r;operadores=o||[];stat('')}
   catch(e){dbErr(e,'No se pudieron cargar los datos')}
   $('#tol').value=tolv;$('#oprcfg').value=operadores.join('\n');showRespaldo();showCat();showCfg();showOperador();misHoy();

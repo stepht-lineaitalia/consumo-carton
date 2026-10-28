@@ -305,13 +305,13 @@ function hsOpcFiltros(D){const s=$('#hfw'),v=s.value,W=[...new Set(D.map(x=>x.se
 // Resumen numérico de un conjunto de OP (solo las capturadas con esperado entran en hojas y diferencias).
 function hsSum(L){const C=L.filter(x=>x.k!=='pend'&&x.k!=='sinprog'),E=C.reduce((s,x)=>s+x.E,0),R=C.reduce((s,x)=>s+x.R,0);
   return{n:L.length,capt:L.filter(x=>x.k!=='pend').length,pend:L.filter(x=>x.k==='pend').length,ok:C.filter(x=>x.k==='ok').length,mas:C.filter(x=>x.k==='mas').length,menos:C.filter(x=>x.k==='menos').length,
-    sp:L.filter(x=>x.k==='sinprog').length,C:C.length,E,R,net:R-E,abs:C.reduce((s,x)=>s+Math.abs(x.difT),0),P:C.filter(x=>x.difT>0).reduce((s,x)=>s+x.difT,0),N:C.filter(x=>x.difT<0).reduce((s,x)=>s+x.difT,0)}}
+    sp:L.filter(x=>x.k==='sinprog').length,C:C.length,pc:L.filter(x=>hsPorCorregir(x)).length,cor:L.filter(x=>hsPorCorregir(x)&&x.r.rev).length,E,R,net:R-E,abs:C.reduce((s,x)=>s+Math.abs(x.difT),0),P:C.filter(x=>x.difT>0).reduce((s,x)=>s+x.difT,0),N:C.filter(x=>x.difT<0).reduce((s,x)=>s+x.difT,0)}}
 const sgn=v=>v==null?'—':(v>0?'+':'')+nfmt(v);
 const kpiH=(t,v,c,sub)=>`<div class="kpi"><span class="mut">${t}</span><b class="${c||''}">${v}</b>${sub?`<span class="mut">${sub}</span>`:''}</div>`;
 const pctTxt=(a,b)=>b?Math.round(a/b*100)+' %':'—';
 function hsKpis(s,soloReg){return`<div class="kpis">${soloReg?kpiH('OP registradas',s.capt,'',s.sp?`${s.sp} sin programar`:''):kpiH('OP en el periodo',s.n,'',`${s.capt} capturadas · ${s.pend} pendientes`)}${kpiH('Correctas',pctTxt(s.ok,s.C),'c-ok',`${s.ok} de ${s.C} capturadas`)}
   ${kpiH('Con diferencia',s.mas+s.menos,s.mas+s.menos?'pos':'',`${s.mas} de más · ${s.menos} de menos`)}${kpiH('Hojas esperadas → reales',`${nfmt(s.E)} → ${nfmt(s.R)}`,'',`Variación ${pct(s.R,s.E)}`)}
-  ${kpiH('Diferencia neta (hojas)',sgn(s.net),s.net>0?'pos':s.net<0?'neg':'',`Absoluta ${nfmt(s.abs)} hojas`)}</div>`}
+  ${kpiH('Corregidas',pctTxt(s.cor,s.pc),s.pc&&s.cor===s.pc?'c-ok':'',s.pc?`${s.cor} de ${s.pc} con diferencia`:'Sin diferencias por corregir')}</div>`}
 let hsLim=100,hsOrden='fecha',hsDet=PREF.get('hs_tdet')==='1';
 // «Corregido» = marca de Administración en el Tablero para OP con diferencia o sin programar (ya se revisó/corrigió).
 // No cambia el estado ni los números; sirve para saber qué falta atender (filtro «Pendientes de corregir» y alertas).
@@ -347,13 +347,13 @@ function hsAnalisis(){const D=hsDatos();hsOpcFiltros(D);const L=hsFiltrar(D),s=h
   if(s.sp)al.push(['at',`<b>${s.sp} OP sin programar</b> (agregadas a mano, no vienen en el programa del ERP).`]);
   const pc=L.filter(x=>hsPorCorregir(x)&&!x.r.rev).length;if(pc)al.push(['at',`<b>${pc} OP con diferencia pendientes de corregir</b> (en Tablero usa el filtro «Pendientes de corregir»).`]);
   const rep=M.filter(m=>m.d>=2);if(rep.length)al.push(['at',`<b>${rep.length} modelo(s) con diferencia en 2 o más OP</b>: ${rep.slice(0,6).map(m=>esc(m.k)).join(', ')}. Revisar si la lista de materiales del ERP está bien.`]);
-  if(!al.length)al.push(['ok','Sin alertas en el periodo filtrado.']);
+  const ALS=alertasSeparar(al,1);
   $('#hsv-ana').innerHTML=
     sec(1,'Resumen',hsKpis(s)+(s.C?`<ul class="rx">${[
       ['in',`De ${s.C} OP capturadas, <b>${s.ok}</b> coinciden con lo programado y <b>${s.mas+s.menos}</b> tienen diferencia (${s.mas} usaron de más y ${s.menos} de menos).`],
       ['in',`Se usaron <b>${nfmt(s.R)}</b> hojas contra <b>${nfmt(s.E)}</b> esperadas: diferencia neta de <b>${sgn(s.net)}</b> hojas (${pct(s.R,s.E)}).`+(s.P&&s.N?` Hay compensación: +${nfmt(s.P)} de más y ${nfmt(s.N)} de menos.`:'')],
       ...(top[0]?[['at',`Mayor diferencia: <b>${esc(top[0].op)}</b> (${esc(top[0].modelo)}), ${sgn(top[0].difM)} hojas por mueble = ${sgn(top[0].difT)} en total.`]]:[])].map(([k,t])=>`<li class="rx-${k}">${t}</li>`).join('')}</ul>`:'<p class="mut">Todavía no hay OP capturadas en este periodo.</p>'))+
-    sec(2,'Alertas',`<ul class="rx">${al.map(([k,t])=>`<li class="rx-${k}">${t}</li>`).join('')}</ul>`)+
+    sec(2,'Alertas',(ALS.vis.length?`<ul class="rx">${ALS.vis.map(([k,t])=>`<li class="rx-${k} alli"><span>${t}</span>${aloBtn(t)}</li>`).join('')}</ul>`:`<ul class="rx"><li class="rx-ok">${ALS.ocu.length?'Sin alertas pendientes.':'Sin alertas en el periodo filtrado.'}</li></ul>`)+aloRest(ALS.ocu,1))+
     sec(3,'OP con mayor diferencia',top.length?`<div class="scroll"><table class="tc"><thead><tr><th>OP / Modelo</th><th>Programa</th><th>Área</th><th class="n">Muebles</th><th class="n">Hojas/mueble<br><span class="mut">esp. → real</span></th><th class="n">Dif. total</th><th>Comentario</th></tr></thead><tbody>${top.map(x=>`<tr><td><b>${esc(x.modelo)}</b><br><span class="mut">${esc(x.op)}</span></td><td>${dmyISO(x.fecha)}</td><td>${AREA_TXT[x.area]||'—'}</td><td class="n">${nfmt(x.mu)}</td><td class="n">${nfmt(x.esp)} → ${nfmt(x.real)}</td><td class="n ${x.difT>0?'pos':'neg'}">${sgn(x.difT)}</td><td class="mut" style="white-space:normal">${esc(x.com)}</td></tr>`).join('')}</tbody></table></div>`:'<p class="mut">Ninguna OP con diferencia en el periodo.</p>')+
     sec(4,'Por modelo',M.length?`<p class="mut">Modelo principal (agrupa colores y variantes con las mismas reglas de Cartón). Ordenado por número de OP con diferencia.</p><div class="scroll"><table class="tc"><thead><tr><th>Modelo</th><th class="n">OP capt.</th><th class="n">Con dif.</th><th class="n">Hojas/mueble<br><span class="mut">esperadas</span></th><th class="n">Real promedio</th><th class="n">Dif. promedio</th><th class="n">Dif. absoluta</th><th>Variantes</th></tr></thead><tbody>${M.slice(0,30).map(m=>`<tr${m.d>=2?' class="fx"':''}><td><b>${esc(m.k)}</b></td><td class="n">${m.c}</td><td class="n">${m.d}</td><td class="n">${nfmt(m.espT)}</td><td class="n">${m.realP.toFixed(2)}</td><td class="n ${m.difP>hsTol?'pos':m.difP<-hsTol?'neg':''}">${(m.difP>0?'+':'')+m.difP.toFixed(2)}</td><td class="n">${nfmt(m.abs)}</td><td class="mut" style="white-space:normal">${m.vars.map(esc).join(', ')}</td></tr>`).join('')}</tbody></table></div>${M.length>30?`<p class="mut">Se muestran 30 de ${M.length}. Usa el filtro de OP o modelo para ver otro.</p>`:''}`:'<p class="mut">Sin OP capturadas.</p>')+
     sec(5,'Por área',`<div class="scroll"><table class="tc">${thG('Área')}<tbody>${HS.orden.map(a=>fila(AREA_TXT[a],L.filter(x=>x.area===a))).join('')}<tr class="tt">${fila('Total',L).slice(4)}</tbody></table></div>`)+
@@ -374,6 +374,8 @@ const hsRefrescar=()=>{hsLim=100;if(hsTab==='tab')hsTablero();else if(hsTab==='a
 HSF.forEach(s=>$(s).addEventListener(s==='#hfq'?'input':'change',hsRefrescar));
 $('#hfclr').onclick=()=>{HSF.forEach(s=>$(s).value='');hsRefrescar()};
 $('#hfx').onclick=()=>hsExcel();
+$('#hsv-ana').addEventListener('click',async e=>{const off=e.target.dataset.aloff,on=e.target.dataset.alon;if(!off&&!on)return;e.preventDefault();
+  try{await alertasMarcar(off?[off]:on.split(','),!!off)}catch(x){dbErr(x,'No se pudo guardar')}hsAnalisis()});
 $('#hsv-tab').addEventListener('click',e=>{const b=e.target.closest('[data-hst]');if(b){$('#hfs').value=$('#hfs').value===b.dataset.hst?'':b.dataset.hst;hsTablero();return}if(e.target.id==='hsmas'){hsLim+=100;hsTablero()}});
 $('#hsv-tab').addEventListener('change',e=>{if(e.target.id==='hsord'){hsOrden=e.target.value;hsTablero()}
   if(e.target.id==='hsdet'){hsDet=e.target.checked;PREF.set('hs_tdet',hsDet?'1':'');hsTablero()}});
@@ -389,7 +391,7 @@ async function hsAbrir(t){t=t||hsTab;
   if(t!=='cap'){hcEdit={};hcExtra=[]}hsTab=t;
   document.querySelectorAll('#subhojas button').forEach(b=>b.classList.toggle('on',b.dataset.hs===hsTab));
   ['prog','cap','tab','ana'].forEach(k=>$('#hsv-'+k).classList.toggle('hide',k!==hsTab));$('#hsflt').classList.toggle('hide',hsTab!=='tab'&&hsTab!=='ana');
-  try{stat('Cargando hojas single…');await Promise.all([hsCargarDatos(),hsLeerTol()]);stat('')}catch(x){dbErr(x,'Hojas single')}
+  try{stat('Cargando hojas single…');await Promise.all([hsCargarDatos(),hsLeerTol(),alertasLeer()]);stat('')}catch(x){dbErr(x,'Hojas single')}
   $('#hstol').value=hsTol;
   if(hsTab==='cap')hsCapturaView();else if(hsTab==='tab')hsTablero();else if(hsTab==='ana')hsAnalisis();else hsProgramaView();
 }

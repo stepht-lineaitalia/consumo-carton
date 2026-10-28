@@ -120,3 +120,7 @@ body.sidecol #side{display:none!important}
 .cmpk{grid-template-columns:repeat(3,minmax(0,1fr));margin:10px 0}.cmpk .kpi b{font-size:17px}
 .cmplk{display:inline-block;margin-top:6px;font-size:13px;color:var(--acc)}
 @media(max-width:700px){.cmp2{grid-template-columns:1fr}}
+/* Alertas que se pueden descartar (×) */
+.alb{display:inline-flex;gap:6px;align-items:center;flex:0 0 auto}
+.aloff{background:none;border:0;color:var(--mut);font-size:18px;line-height:1;padding:2px 6px;border-radius:6px;cursor:pointer}.aloff:hover{color:var(--ink);background:rgba(0,0,0,.06)}
+li.alli{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
