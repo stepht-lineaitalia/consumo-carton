@@ -4,13 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Consumo de cartón</title>
-<meta name="version" content="5.10.0">
+<meta name="version" content="5.10.1">
 <link rel="stylesheet" href="vendor/fonts.css">
 <script src="vendor/xlsx.full.min.js"></script>
 <script src="vendor/supabase.min.js"></script>
 <!-- config.js: URL y clave pública del proyecto de Supabase. Vacío = la app trabaja solo en el navegador. Ver GUIA-NUBE.md -->
 <script src="config.js"></script>
-<link rel="stylesheet" href="estilos.css?v=5.10.0">
+<link rel="stylesheet" href="estilos.css?v=5.10.1">
 </head>
 <body>
 <div class="shell">
@@ -134,18 +134,18 @@
 </div>
 </section>
 <section id="va" class="hide adm">
-<div class="card"><div class="row"><label style="flex:3 1 220px">Buscar OP o modelo<input id="cmpq" placeholder="Ej. OP09253006 o C2-2206" autocomplete="off"></label>
-<label style="flex:0 0 auto;white-space:nowrap"><br><input type="checkbox" id="cmpdif" style="width:auto"> Solo con diferencia</label></div>
+<div class="card"><div class="row"><label style="flex:3 1 220px">Buscar OP o modelo<input id="cmpq" placeholder="Ej. OP09253006 o C2-2206" autocomplete="off"></label><button class="btn ghost sm" id="cmpclr" type="button" title="Borrar la búsqueda">✕ Limpiar</button>
+<label style="flex:0 0 auto;white-space:nowrap"><br><input type="checkbox" id="cmpdif" style="width:auto"> Solo con diferencia</label><label style="flex:0 0 auto;white-space:nowrap"><br><input type="checkbox" id="cmpcor" style="width:auto"> Ocultar corregidos</label></div>
 <p class="mut" style="margin:8px 0 0">Escribe una OP para ver su cartón y sus hojas lado a lado, o un modelo para ver todas sus OP. Los números de cada material nunca se suman ni se mezclan.</p></div>
 <div id="cmpres"></div>
 </section>
 </main>
 </div>
 
-<script src="js/comun.js?v=5.10.0"></script>
-<script src="js/carton.js?v=5.10.0"></script>
-<script src="js/hojas.js?v=5.10.0"></script>
-<script src="js/comparativo.js?v=5.10.0"></script>
-<script src="js/app.js?v=5.10.0"></script>
+<script src="js/comun.js?v=5.10.1"></script>
+<script src="js/carton.js?v=5.10.1"></script>
+<script src="js/hojas.js?v=5.10.1"></script>
+<script src="js/comparativo.js?v=5.10.1"></script>
+<script src="js/app.js?v=5.10.1"></script>
 </body>
 </html>

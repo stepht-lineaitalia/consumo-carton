@@ -8,11 +8,13 @@ function cmpDatos(){
   const H={};hsDatos().forEach(x=>H[x.op]=x);
   return[...new Set([...Object.keys(C),...Object.keys(H)])].map(op=>{const c=C[op],h=H[op],r=c&&c.r;
     const e=r?est(r):null,cDif=!!e&&e.cls==='bad',hReg=!!(h&&h.r),hDif=!!h&&(h.k==='mas'||h.k==='menos');
-    return{op,modelo:(r&&r.modelo)||(h&&h.modelo)||'',fecha:(h&&h.fecha)||(r&&r.venc)||'',area:h&&h.area||'',c:r?{r,e,n:c.n}:null,h:h||null,hReg,cDif,hDif,
+    // «Corregida»: cada material que necesitaba corrección ya tiene la marca (Cartón: Corregido · Hojas: Corregido).
+    const cNec=!!r&&porCorregir(r),cOk=cNec&&!!r.corr,hNec=!!h&&hsPorCorregir(h),hOk=hNec&&!!h.r.rev,corregida=(cNec||hNec)&&(!cNec||cOk)&&(!hNec||hOk);
+    return{cOk,hOk,corregida,op,modelo:(r&&r.modelo)||(h&&h.modelo)||'',fecha:(h&&h.fecha)||(r&&r.venc)||'',area:h&&h.area||'',c:r?{r,e,n:c.n}:null,h:h||null,hReg,cDif,hDif,
       ult:Math.max(r?r.ts:0,hReg?h.r.ts:0)}});
 }
-const cmpCelC=x=>x.c?chipE(x.c.e,(EST[x.c.e.k]||{}).s||x.c.e.t):'<span class="chip st st-pend">Sin registro</span>';
-const cmpCelH=x=>x.hReg?hsChip(x.h.k):x.h?'<span class="chip st st-pend">Pendiente</span>':'<span class="chip st st-pend">Sin registro</span>';
+const cmpCelC=x=>x.c?chipE(x.c.e,(EST[x.c.e.k]||{}).s||x.c.e.t)+(x.cOk?' <span class="c-ok" title="Corregido">✓</span>':''):'<span class="chip st st-pend">Sin registro</span>';
+const cmpCelH=x=>x.hReg?hsChip(x.h.k)+(x.hOk?' <span class="c-ok" title="Corregido">✓</span>':''):x.h?'<span class="chip st st-pend">Pendiente</span>':'<span class="chip st st-pend">Sin registro</span>';
 const cmpDifC=x=>x.c?`<span class="${x.c.r.R-x.c.r.E>0?'pos':x.c.r.R-x.c.r.E<0?'neg':''}">${sgm(x.c.r.R-x.c.r.E)}</span>`:'—';
 const cmpDifH=x=>x.hReg&&x.h.difM!=null?`<span class="${x.h.difM>hsTol?'pos':x.h.difM<-hsTol?'neg':''}">${sgn(x.h.difM)}</span>`:'—';
 
@@ -43,9 +45,10 @@ function cmpTabla(L,titulo,sub){
 
 let cmpLim=50;
 function cmpVista(){
-  const q=$('#cmpq').value.trim().toUpperCase(),soloDif=$('#cmpdif').checked;
+  const q=$('#cmpq').value.trim().toUpperCase(),soloDif=$('#cmpdif').checked,sinCor=$('#cmpcor').checked;
   let D=cmpDatos().filter(x=>x.c||x.hReg);                       // solo OP con algún consumo registrado
   if(soloDif)D=D.filter(x=>x.cDif||x.hDif);
+  if(sinCor)D=D.filter(x=>!x.corregida);
   const out=$('#cmpres');
   if(!q){const L=D.sort((a,b)=>b.ult-a.ult);
     out.innerHTML=L.length?cmpTabla(L.slice(0,cmpLim),'Registros más recientes',`${L.length} OP con consumo registrado${soloDif?' y diferencia':''} · ${L.filter(x=>x.c&&x.hReg).length} con los dos materiales`)+(L.length>cmpLim?`<p><button class="btn ghost sm" id="cmpmas" type="button">Mostrar más (${L.length-cmpLim})</button></p>`:''):
@@ -61,6 +64,8 @@ function cmpVista(){
 async function compAbrir(){stat('Cargando…');try{await Promise.all([reload(),hsCargarDatos(),hsLeerTol()]);stat('')}catch(x){dbErr(x,'Comparativo')}cmpLim=50;cmpVista()}
 $('#cmpq').oninput=()=>{cmpLim=50;cmpVista()};
 $('#cmpdif').onchange=()=>{cmpLim=50;cmpVista()};
+$('#cmpcor').onchange=()=>{cmpLim=50;cmpVista()};
+$('#cmpclr').onclick=()=>{$('#cmpq').value='';cmpLim=50;cmpVista();$('#cmpq').focus()};
 $('#cmpres').addEventListener('click',e=>{const a=e.target.closest('[data-cmpop],[data-cmpc],[data-cmph],#cmpmas');if(!a)return;e.preventDefault();
   if(a.id==='cmpmas'){cmpLim+=50;cmpVista();return}
   if(a.dataset.cmpop){$('#cmpq').value=a.dataset.cmpop;cmpVista();window.scrollTo(0,0);return}
