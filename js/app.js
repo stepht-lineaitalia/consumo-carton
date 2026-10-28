@@ -1,9 +1,9 @@
 // Arranque de la app: navegación entre pestañas, sesión, roles y operador. Se carga al final.
 /* ==== MÓDULOS (menú lateral de Administración) ====
-   Cartón (Captura, Análisis, Modelos, Tablero) · Hojas single · Vista consolidada. Planta no ve el menú: siempre queda en Cartón → Captura. */
+   Cartón (Captura, Análisis, Modelos, Tablero) · Hojas single · Comparativo de consumos. Planta no ve el menú: siempre queda en Cartón → Captura. */
 const MODS={carton:{t:'Consumo de cartón',s:'Captura en cm, cálculo y reportes en m².'},
   hojas:{t:'Hojas single',s:'Programa, PDF de producción y control en hojas.'},
-  ambos:{t:'Vista consolidada',s:'Cartón y hojas single de una OP o de un modelo, lado a lado.'}};
+  ambos:{t:'Comparativo de consumos',s:'Cartón y hojas single de una OP o de un modelo, lado a lado.'}};
 let modulo='carton';
 function verModulo(m){if(m!=='carton'&&!document.body.classList.contains('admin'))m='carton';modulo=m;
   document.querySelectorAll('#side .mh').forEach(b=>b.classList.toggle('on',b.dataset.mod===m));
@@ -12,6 +12,12 @@ function verModulo(m){if(m!=='carton'&&!document.body.classList.contains('admin'
   if(m!=='carton'){[1,2,3,4].forEach(i=>$('#v'+i).classList.add('hide'));$('#flt').classList.add('hide')}}
 function irModulo(m){if(m==='carton')tab(cur);else{verModulo(m);if(m==='hojas')hsAbrir()}}
 $('#side').addEventListener('click',e=>{const b=e.target.closest('.mh');if(b)irModulo(b.dataset.mod)});
+// Menú ocultable (☰): se recuerda en este equipo. Ruta actual arriba del título («Cartón › Tablero») para no perderse con el menú oculto.
+document.body.classList.toggle('sidecol',PREF.get('sidecol')==='1');
+$('#sidetg').onclick=()=>{const c=!document.body.classList.contains('sidecol');document.body.classList.toggle('sidecol',c);PREF.set('sidecol',c?'1':'')};
+function ruta(){const m=document.querySelector('#side .mh.on'),s=document.querySelector('#side .subm:not(.hide) button.on');
+  $('#crumb').textContent=(m?m.textContent:'')+(s?' › '+s.textContent:'')}
+new MutationObserver(ruta).observe($('#side'),{subtree:true,attributes:true,attributeFilter:['class']});ruta();
 async function tab(n){verModulo('carton');if(n!==1&&!document.body.classList.contains('admin'))n=1;if(n===1&&document.body.classList.contains('ro'))n=3;cur=n;
   [1,2,3,4].forEach(i=>{$('#v'+i).classList.toggle('hide',n!==i);$('#t'+i).classList.toggle('on',n===i)});
   $('#flt').classList.toggle('hide',n===1);$('#ddetw').classList.toggle('hide',n!==2);

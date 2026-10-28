@@ -4,26 +4,26 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Consumo de cartón</title>
-<meta name="version" content="5.8.1">
+<meta name="version" content="5.8.2">
 <link rel="stylesheet" href="vendor/fonts.css">
 <script src="vendor/xlsx.full.min.js"></script>
 <script src="vendor/supabase.min.js"></script>
 <!-- config.js: URL y clave pública del proyecto de Supabase. Vacío = la app trabaja solo en el navegador. Ver GUIA-NUBE.md -->
 <script src="config.js"></script>
-<link rel="stylesheet" href="estilos.css?v=5.8.1">
+<link rel="stylesheet" href="estilos.css?v=5.8.2">
 </head>
 <body>
 <div class="shell">
-<!-- Menú de Administración (no lo ve Planta): módulos Cartón, Hojas single y Vista consolidada. Ver irModulo() en js/app.js -->
+<!-- Menú de Administración (no lo ve Planta): módulos Cartón, Hojas single y Comparativo de consumos. Ver irModulo() en js/app.js -->
 <nav id="side" class="adm" aria-label="Módulos">
 <div class="mod"><button class="mh on" data-mod="carton" type="button">Cartón</button>
 <div class="subm" id="subcarton"><button id="t1" class="on w" type="button">Captura</button><button id="t3" type="button">Análisis</button><button id="t4" type="button">Modelos</button><button id="t2" type="button">Tablero</button></div></div>
 <div class="mod"><button class="mh" data-mod="hojas" type="button">Hojas single</button>
 <div class="subm hide" id="subhojas"><button data-hs="prog" class="on" type="button">Programa</button><button data-hs="cap" class="w" type="button">Captura</button></div></div>
-<div class="mod"><button class="mh" data-mod="ambos" type="button">Vista consolidada</button></div>
+<div class="mod"><button class="mh" data-mod="ambos" type="button">Comparativo de consumos</button></div>
 </nav>
 <main>
-<div class="top"><div><h1 id="ttl">Consumo de cartón</h1><p class="sub" id="subt">Captura en cm, cálculo y reportes en m².</p></div>
+<div class="top"><div><p id="crumb" class="adm"></p><div class="ttlw"><button id="sidetg" class="adm" type="button" title="Mostrar u ocultar el menú" aria-label="Mostrar u ocultar el menú">☰</button><h1 id="ttl">Consumo de cartón</h1></div><p class="sub" id="subt">Captura en cm, cálculo y reportes en m².</p></div>
 <div class="mut" style="text-align:right"><label id="admw" style="white-space:nowrap"><input type="checkbox" id="adm" style="width:auto"> Modo admin</label><span id="ses" class="hide"></span></div></div>
 <section id="vlogin" class="card hide" style="max-width:380px;margin:24px auto">
 <h2>Iniciar sesión</h2><p class="mut" style="margin-top:0">En los equipos de planta se inicia sesión una sola vez; el equipo la recuerda.</p>
@@ -102,7 +102,7 @@
 </section>
 <div id="mlista"></div>
 </section>
-<!-- Hojas single y Vista consolidada: secciones de Administración (se construyen en las siguientes etapas) -->
+<!-- Hojas single y Comparativo de consumos: secciones de Administración (se construyen en las siguientes etapas) -->
 <section id="vh" class="hide adm">
 <div id="hsv-prog">
 <div class="card"><h2>Cargar programa del ERP</h2>
@@ -123,14 +123,14 @@
 <p id="hcmsg" style="margin:8px 0 0"></p></div>
 </div>
 </section>
-<section id="va" class="hide adm"><div class="card"><h2>Vista consolidada</h2>
+<section id="va" class="hide adm"><div class="card"><h2>Comparativo de consumos</h2>
 <p class="mut" style="margin:0">En construcción: aquí vas a poder buscar una OP o un modelo y ver su consumo de cartón y de hojas single lado a lado.</p></div></section>
 </main>
 </div>
 
-<script src="js/comun.js?v=5.8.1"></script>
-<script src="js/carton.js?v=5.8.1"></script>
-<script src="js/hojas.js?v=5.8.1"></script>
-<script src="js/app.js?v=5.8.1"></script>
+<script src="js/comun.js?v=5.8.2"></script>
+<script src="js/carton.js?v=5.8.2"></script>
+<script src="js/hojas.js?v=5.8.2"></script>
+<script src="js/app.js?v=5.8.2"></script>
 </body>
 </html>
