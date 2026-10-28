@@ -4,13 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Consumo de cartón</title>
-<meta name="version" content="5.8.3">
+<meta name="version" content="5.9.0">
 <link rel="stylesheet" href="vendor/fonts.css">
 <script src="vendor/xlsx.full.min.js"></script>
 <script src="vendor/supabase.min.js"></script>
 <!-- config.js: URL y clave pública del proyecto de Supabase. Vacío = la app trabaja solo en el navegador. Ver GUIA-NUBE.md -->
 <script src="config.js"></script>
-<link rel="stylesheet" href="estilos.css?v=5.8.3">
+<link rel="stylesheet" href="estilos.css?v=5.9.0">
 </head>
 <body>
 <div class="shell">
@@ -19,7 +19,7 @@
 <div class="mod"><button class="mh on" data-mod="carton" type="button">Cartón</button>
 <div class="subm" id="subcarton"><button id="t1" class="on w" type="button">Captura</button><button id="t3" type="button">Análisis</button><button id="t4" type="button">Modelos</button><button id="t2" type="button">Tablero</button></div></div>
 <div class="mod"><button class="mh" data-mod="hojas" type="button">Hojas single</button>
-<div class="subm hide" id="subhojas"><button data-hs="prog" class="on" type="button">Programa</button><button data-hs="cap" class="w" type="button">Captura</button></div></div>
+<div class="subm hide" id="subhojas"><button data-hs="prog" class="on" type="button">Programa</button><button data-hs="cap" class="w" type="button">Captura</button><button data-hs="tab" type="button">Tablero</button><button data-hs="ana" type="button">Análisis</button></div></div>
 <div class="mod"><button class="mh" data-mod="ambos" type="button">Comparativo de consumos</button></div>
 </nav>
 <main>
@@ -108,11 +108,21 @@
 <div class="card"><h2>Cargar programa del ERP</h2>
 <p class="mut" style="margin-top:0">Sube el Excel «Líneas comp. ped. prod.». Solo entran <b>ENS MUEBLE</b> (Muebles) y <b>ENS LIBRER</b> (Libreros) de la hoja single. Hojas por mueble = Cantidad por ÷ 0.25 kg; muebles = Cantidad esperada ÷ Cantidad por.</p>
 <input type="file" id="hsfile" accept=".xlsx,.xls,.csv" class="w"><div id="hsmsg" class="mut" style="margin-top:8px"></div></div>
+<details class="card w" id="hstolbox"><summary><b>Configuración</b> <span class="mut">· tolerancia</span></summary>
+<div class="row" style="margin-top:8px"><label style="flex:0 1 260px">Tolerancia (± hojas por mueble)<input type="number" id="hstol" min="0" step="1"></label></div>
+<p class="mut" id="hstolmsg" style="margin:6px 0 0">Diferencia permitida para considerar una OP «Correcta». En 0, cualquier diferencia se marca.</p></details>
 <div class="card"><h2>PDF de producción</h2>
 <div class="row"><label style="flex:0 1 220px">Fecha de programa<select id="hsfecha"></select></label><button class="btn" id="hspdf" type="button">Generar PDF</button><label style="flex:1 1 200px">Buscar OP o modelo<input id="hsq" placeholder="Ej. OP09253006 o C2-2206" autocomplete="off"></label></div>
 <p class="mut" id="hsinfo" style="margin:8px 0 0"></p><p class="mut" id="hspdfmsg" style="margin:4px 0 0"></p>
 <div id="hstabla" style="margin-top:10px"></div></div>
 </div>
+<div class="card hide" id="hsflt"><div class="row">
+<label>Programa desde<input type="date" id="hff"></label><label>Programa hasta<input type="date" id="hft"></label>
+<label>Semana de programa<select id="hfw"></select></label><label>Área<select id="hfa"><option value="">Todas</option><option value="MUEBLES">Muebles</option><option value="LIBREROS">Libreros</option></select></label>
+<label>Estado<select id="hfs"></select></label><label style="flex:2 1 160px">OP o modelo<input id="hfq" placeholder="Filtrar…" autocomplete="off"></label>
+<button class="btn ghost sm" id="hfclr" type="button">Limpiar filtros</button></div>
+<div class="row" style="margin-top:10px;align-items:center"><button class="btn ghost sm" id="hfx" type="button">Exportar Excel (filtro actual)</button><span class="mut" id="hfsum"></span></div></div>
+<div id="hsv-tab" class="hide"></div><div id="hsv-ana" class="hide"></div>
 <div id="hsv-cap" class="hide">
 <div class="card"><h2>Captura de hojas reales</h2>
 <p class="mut" style="margin-top:0">Pasa lo que el operador anotó en la columna amarilla del PDF («Hojas realmente utilizadas por mueble»). Cada renglón se pinta al escribir; con <b>Enter</b> bajas al siguiente. Nada se guarda hasta que das <b>Guardar</b>.</p>
@@ -128,9 +138,9 @@
 </main>
 </div>
 
-<script src="js/comun.js?v=5.8.3"></script>
-<script src="js/carton.js?v=5.8.3"></script>
-<script src="js/hojas.js?v=5.8.3"></script>
-<script src="js/app.js?v=5.8.3"></script>
+<script src="js/comun.js?v=5.9.0"></script>
+<script src="js/carton.js?v=5.9.0"></script>
+<script src="js/hojas.js?v=5.9.0"></script>
+<script src="js/app.js?v=5.9.0"></script>
 </body>
 </html>

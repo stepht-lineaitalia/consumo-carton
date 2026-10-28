@@ -280,15 +280,103 @@ $('#hcfecha').onchange=e=>{const v=e.target.value;if(!hcCambiar(()=>hsFecha=v))e
 $('#hcarea').onchange=e=>{const v=e.target.value;if(!hcCambiar(()=>hcArea=v))e.target.value=hcArea};
 window.addEventListener('beforeunload',e=>{if(hcDirty()){e.preventDefault();e.returnValue=''}});
 
+/* ==== TABLERO Y ANÁLISIS DE HOJAS SINGLE (etapa 6) ====
+   Base de comparación: hojas por mueble (esperadas = Cantidad por ÷ 0.25 vs reales capturadas). Los totales de la OP
+   = hojas por mueble × muebles programados. El periodo se filtra por FECHA DE PROGRAMA (Fecha vencimiento del ERP).
+   Estados: Correcto (|real − esperado| ≤ tolerancia) · Diferencia · Pendiente (sin capturar) · Sin programar. */
+const HS_ESTADOS=[{k:'ok',t:'Correcto',c:'st-ok'},{k:'mas',t:'De más',c:'st-cambcons'},{k:'menos',t:'De menos',c:'st-extra'},{k:'pend',t:'Pendiente',c:'st-pend'},{k:'sinprog',t:'Sin programar',c:'st-sinprog'}];
+const HSE=Object.fromEntries(HS_ESTADOS.map(x=>[x.k,x]));
+const hsChip=k=>`<span class="chip st ${HSE[k].c}">${HSE[k].t}</span>`;
+function hsDatos(){const reg=hsRegBy(),P=Object.fromEntries(hsProg.map(p=>[p.op,p]));
+  return[...new Set([...hsProg.map(p=>p.op),...Object.keys(reg)])].map(op=>{const p=P[op],r=reg[op],g=p||(r&&r.prog)||{};
+    const esp=p?(p.kgPor>0?p.hojasMueble:null):(g.hojasMueble!=null&&g.hojasMueble!==''?+g.hojasMueble:null),mu=num(g.muebles)||0,real=r?r.real:null;
+    const difM=real!=null&&esp!=null?real-esp:null;
+    const k=real==null?'pend':esp==null?'sinprog':Math.abs(difM)<=hsTol+1e-9?'ok':difM>0?'mas':'menos';
+    return{op,modelo:g.modelo||'',mp:modeloPrincipal(g.modelo||''),area:g.area||'',fecha:g.fecha||'',sem:g.fecha?isoWeek(parseISO(g.fecha)):'',mu,esp,real,difM,
+      E:esp!=null&&real!=null?esp*mu:0,R:real!=null&&esp!=null?real*mu:0,difT:difM!=null?difM*mu:null,k,com:r&&r.com||'',r,
+      raro:!!p&&(!(p.kgPor>0)||!entero(p.hojasMueble)||!entero(p.muebles))}})}
+const HSF=['#hff','#hft','#hfw','#hfa','#hfs','#hfq'];
+function hsFiltrar(D){const f=$('#hff').value,t=$('#hft').value,w=$('#hfw').value,a=$('#hfa').value,s=$('#hfs').value,q=$('#hfq').value.trim().toUpperCase();
+  return D.filter(x=>(!f||x.fecha>=f)&&(!t||x.fecha<=t)&&(!w||x.sem===w)&&(!a||x.area===a)&&(!s||(s==='dif'?x.k==='mas'||x.k==='menos':x.k===s))&&(!q||(x.op+' '+x.modelo+' '+x.mp).toUpperCase().includes(q)))}
+function hsOpcFiltros(D){const s=$('#hfw'),v=s.value,W=[...new Set(D.map(x=>x.sem).filter(Boolean))].sort().reverse();
+  s.innerHTML='<option value="">Todas</option>'+W.map(w=>`<option value="${w}">${typeof semTxt==='function'?semTxt(w):w}</option>`).join('');s.value=W.includes(v)?v:'';
+  const e=$('#hfs');if(!e.options.length)e.innerHTML='<option value="">Todos</option><option value="dif">Con diferencia (de más o de menos)</option>'+HS_ESTADOS.map(x=>`<option value="${x.k}">${x.t}</option>`).join('')}
+// Resumen numérico de un conjunto de OP (solo las capturadas con esperado entran en hojas y diferencias).
+function hsSum(L){const C=L.filter(x=>x.k!=='pend'&&x.k!=='sinprog'),E=C.reduce((s,x)=>s+x.E,0),R=C.reduce((s,x)=>s+x.R,0);
+  return{n:L.length,capt:L.filter(x=>x.k!=='pend').length,pend:L.filter(x=>x.k==='pend').length,ok:C.filter(x=>x.k==='ok').length,mas:C.filter(x=>x.k==='mas').length,menos:C.filter(x=>x.k==='menos').length,
+    sp:L.filter(x=>x.k==='sinprog').length,C:C.length,E,R,net:R-E,abs:C.reduce((s,x)=>s+Math.abs(x.difT),0),P:C.filter(x=>x.difT>0).reduce((s,x)=>s+x.difT,0),N:C.filter(x=>x.difT<0).reduce((s,x)=>s+x.difT,0)}}
+const sgn=v=>v==null?'—':(v>0?'+':'')+nfmt(v);
+const kpiH=(t,v,c,sub)=>`<div class="kpi"><span class="mut">${t}</span><b class="${c||''}">${v}</b>${sub?`<span class="mut">${sub}</span>`:''}</div>`;
+const pctTxt=(a,b)=>b?Math.round(a/b*100)+' %':'—';
+function hsKpis(s){return`<div class="kpis">${kpiH('OP en el periodo',s.n,'',`${s.capt} capturadas · ${s.pend} pendientes`)}${kpiH('Correctas',pctTxt(s.ok,s.C),'c-ok',`${s.ok} de ${s.C} capturadas`)}
+  ${kpiH('Con diferencia',s.mas+s.menos,s.mas+s.menos?'pos':'',`${s.mas} de más · ${s.menos} de menos`)}${kpiH('Hojas esperadas → reales',`${nfmt(s.E)} → ${nfmt(s.R)}`,'',`Variación ${pct(s.R,s.E)}`)}
+  ${kpiH('Diferencia neta (hojas)',sgn(s.net),s.net>0?'pos':s.net<0?'neg':'',`Absoluta ${nfmt(s.abs)} hojas`)}</div>`}
+let hsLim=100,hsOrden='fecha';
+function hsTablero(){const D=hsDatos();hsOpcFiltros(D);const L=hsFiltrar(D),s=hsSum(L),n={};L.forEach(x=>n[x.k]=(n[x.k]||0)+1);
+  const S=hsOrden==='dif'?[...L].sort((a,b)=>Math.abs(b.difT||0)-Math.abs(a.difT||0)||a.op.localeCompare(b.op)):[...L].sort((a,b)=>String(b.fecha).localeCompare(String(a.fecha))||a.op.localeCompare(b.op));
+  $('#hfsum').textContent=`${L.length} de ${D.length} OP`+(HSF.some(x=>$(x).value.trim())?' (con filtros)':'');
+  $('#hsv-tab').innerHTML=`<div class="card">${hsKpis(s)}<div class="leg">${HS_ESTADOS.map(x=>`<button type="button" data-hst="${x.k}" class="${$('#hfs').value===x.k?'on':''}"><i class="${x.c}" style="background:currentColor"></i>${x.t} <b>${n[x.k]||0}</b></button>`).join('')}</div>
+    <div class="row" style="margin:6px 0 4px;align-items:center"><span class="mut">Ordenar por</span><select id="hsord" style="width:auto"><option value="fecha"${hsOrden==='fecha'?' selected':''}>Fecha de programa</option><option value="dif"${hsOrden==='dif'?' selected':''}>Mayor diferencia</option></select></div>
+    <div class="scroll"><table class="tc"><thead><tr><th>Programa</th><th>Área</th><th>OP / Modelo</th><th class="n">Muebles</th><th class="n">Hojas/mueble<br><span class="mut">esp. → real</span></th><th class="n">Dif. por mueble</th><th class="n">Dif. total</th><th>Estado</th><th>Comentario</th></tr></thead><tbody>`+
+    (S.length?S.slice(0,hsLim).map(x=>`<tr class="r-${HSE[x.k].c.slice(3)}"><td>${dmyISO(x.fecha)}</td><td>${AREA_TXT[x.area]||'—'}</td><td><b>${esc(x.modelo)}</b><br><span class="mut">${esc(x.op)}</span>${x.raro?'<br><span class="pos" style="font-size:12px">Programación por revisar</span>':''}</td>
+      <td class="n">${x.mu?nfmt(x.mu):'—'}</td><td class="n">${x.esp!=null?nfmt(x.esp):'—'} → ${x.real!=null?nfmt(x.real):'—'}</td><td class="n ${x.difM>hsTol?'pos':x.difM<-hsTol?'neg':''}">${sgn(x.difM)}</td><td class="n">${sgn(x.difT)}</td><td>${hsChip(x.k)}</td><td class="mut" style="white-space:normal;min-width:120px">${esc(x.com)}</td></tr>`).join(''):'<tr><td colspan="9" class="mut">No hay OP con estos filtros.</td></tr>')+
+    `</tbody></table></div>${S.length>hsLim?`<p><button class="btn ghost sm" id="hsmas" type="button">Mostrar más (${S.length-hsLim})</button></p>`:''}</div>`}
+// Análisis: resumen, por área, por semana, OP con mayor diferencia, por modelo y alertas.
+function hsAnalisis(){const D=hsDatos();hsOpcFiltros(D);const L=hsFiltrar(D),s=hsSum(L);$('#hfsum').textContent=`${L.length} de ${D.length} OP`+(HSF.some(x=>$(x).value.trim())?' (con filtros)':'');
+  const sec=(n,t,b)=>`<section class="card sec"><h2><span class="sn">${n}</span> ${t}</h2>${b}</section>`;
+  const fila=(k,g)=>{const x=hsSum(g);return`<tr><td>${k}</td><td class="n">${x.n}</td><td class="n">${x.capt}</td><td class="n">${pctTxt(x.ok,x.C)}</td><td class="n">${x.mas+x.menos}</td><td class="n">${nfmt(x.E)}</td><td class="n">${nfmt(x.R)}</td><td class="n ${x.net>0?'pos':x.net<0?'neg':''}">${sgn(x.net)}</td><td class="n">${pct(x.R,x.E)}</td></tr>`};
+  const thG=t=>`<thead><tr><th>${t}</th><th class="n">OP</th><th class="n">Capturadas</th><th class="n">Correctas</th><th class="n">Con dif.</th><th class="n">Esperadas</th><th class="n">Reales</th><th class="n">Dif. neta</th><th class="n">Variación</th></tr></thead>`;
+  const grupo=(fn)=>{const m={};L.forEach(x=>{const k=fn(x);(m[k]=m[k]||[]).push(x)});return m};
+  const C=L.filter(x=>x.k==='mas'||x.k==='menos'),top=[...C].sort((a,b)=>Math.abs(b.difT)-Math.abs(a.difT)).slice(0,10);
+  // Por modelo principal (agrupación provisional de Cartón): hojas por mueble típicas vs reales
+  const M=Object.entries(grupo(x=>x.mp)).map(([k,g])=>{const c=g.filter(x=>x.k!=='pend'&&x.k!=='sinprog'),d=c.filter(x=>x.k==='mas'||x.k==='menos');
+    const espT=c.length?med(c.map(x=>x.esp)):null,realP=c.length?c.reduce((s2,x)=>s2+x.real,0)/c.length:null;
+    return{k,n:g.length,c:c.length,d:d.length,espT,realP,difP:c.length?c.reduce((s2,x)=>s2+x.difM,0)/c.length:null,abs:c.reduce((s2,x)=>s2+Math.abs(x.difT),0),vars:[...new Set(g.map(x=>x.modelo))]}})
+    .filter(m=>m.c).sort((a,b)=>b.d-a.d||b.abs-a.abs);
+  const al=[];const raros=L.filter(x=>x.raro);if(raros.length)al.push(['at',`<b>${raros.length} OP con programación por revisar en Dynamics</b> (Cantidad por en 0 o fracciones de hoja/mueble): ${raros.slice(0,8).map(x=>esc(x.op)).join(', ')}${raros.length>8?'…':''}`]);
+  const hoy=ymd(new Date()),viejas=L.filter(x=>x.k==='pend'&&x.fecha&&x.fecha<hoy);if(viejas.length)al.push(['at',`<b>${viejas.length} OP pendientes de capturar</b> con fecha de programa ya pasada.`]);
+  if(s.sp)al.push(['at',`<b>${s.sp} OP sin programar</b> (agregadas a mano, no vienen en el programa del ERP).`]);
+  const rep=M.filter(m=>m.d>=2);if(rep.length)al.push(['at',`<b>${rep.length} modelo(s) con diferencia en 2 o más OP</b>: ${rep.slice(0,6).map(m=>esc(m.k)).join(', ')}. Revisar si la lista de materiales del ERP está bien.`]);
+  if(!al.length)al.push(['ok','Sin alertas en el periodo filtrado.']);
+  $('#hsv-ana').innerHTML=
+    sec(1,'Resumen',hsKpis(s)+(s.C?`<ul class="rx">${[
+      ['in',`De ${s.C} OP capturadas, <b>${s.ok}</b> coinciden con lo programado y <b>${s.mas+s.menos}</b> tienen diferencia (${s.mas} usaron de más y ${s.menos} de menos).`],
+      ['in',`Se usaron <b>${nfmt(s.R)}</b> hojas contra <b>${nfmt(s.E)}</b> esperadas: diferencia neta de <b>${sgn(s.net)}</b> hojas (${pct(s.R,s.E)}).`+(s.P&&s.N?` Hay compensación: +${nfmt(s.P)} de más y ${nfmt(s.N)} de menos.`:'')],
+      ...(top[0]?[['at',`Mayor diferencia: <b>${esc(top[0].op)}</b> (${esc(top[0].modelo)}), ${sgn(top[0].difM)} hojas por mueble = ${sgn(top[0].difT)} en total.`]]:[])].map(([k,t])=>`<li class="rx-${k}">${t}</li>`).join('')}</ul>`:'<p class="mut">Todavía no hay OP capturadas en este periodo.</p>'))+
+    sec(2,'Alertas',`<ul class="rx">${al.map(([k,t])=>`<li class="rx-${k}">${t}</li>`).join('')}</ul>`)+
+    sec(3,'OP con mayor diferencia',top.length?`<div class="scroll"><table class="tc"><thead><tr><th>OP / Modelo</th><th>Programa</th><th>Área</th><th class="n">Muebles</th><th class="n">Hojas/mueble<br><span class="mut">esp. → real</span></th><th class="n">Dif. total</th><th>Comentario</th></tr></thead><tbody>${top.map(x=>`<tr><td><b>${esc(x.modelo)}</b><br><span class="mut">${esc(x.op)}</span></td><td>${dmyISO(x.fecha)}</td><td>${AREA_TXT[x.area]||'—'}</td><td class="n">${nfmt(x.mu)}</td><td class="n">${nfmt(x.esp)} → ${nfmt(x.real)}</td><td class="n ${x.difT>0?'pos':'neg'}">${sgn(x.difT)}</td><td class="mut" style="white-space:normal">${esc(x.com)}</td></tr>`).join('')}</tbody></table></div>`:'<p class="mut">Ninguna OP con diferencia en el periodo.</p>')+
+    sec(4,'Por modelo',M.length?`<p class="mut">Modelo principal (agrupa colores y variantes con las mismas reglas de Cartón). Ordenado por número de OP con diferencia.</p><div class="scroll"><table class="tc"><thead><tr><th>Modelo</th><th class="n">OP capt.</th><th class="n">Con dif.</th><th class="n">Hojas/mueble<br><span class="mut">esperadas</span></th><th class="n">Real promedio</th><th class="n">Dif. promedio</th><th class="n">Dif. absoluta</th><th>Variantes</th></tr></thead><tbody>${M.slice(0,30).map(m=>`<tr${m.d>=2?' class="fx"':''}><td><b>${esc(m.k)}</b></td><td class="n">${m.c}</td><td class="n">${m.d}</td><td class="n">${nfmt(m.espT)}</td><td class="n">${m.realP.toFixed(2)}</td><td class="n ${m.difP>hsTol?'pos':m.difP<-hsTol?'neg':''}">${(m.difP>0?'+':'')+m.difP.toFixed(2)}</td><td class="n">${nfmt(m.abs)}</td><td class="mut" style="white-space:normal">${m.vars.map(esc).join(', ')}</td></tr>`).join('')}</tbody></table></div>${M.length>30?`<p class="mut">Se muestran 30 de ${M.length}. Usa el filtro de OP o modelo para ver otro.</p>`:''}`:'<p class="mut">Sin OP capturadas.</p>')+
+    sec(5,'Por área',`<div class="scroll"><table class="tc">${thG('Área')}<tbody>${HS.orden.map(a=>fila(AREA_TXT[a],L.filter(x=>x.area===a))).join('')}<tr class="tt">${fila('Total',L).slice(4)}</tbody></table></div>`)+
+    sec(6,'Por semana de programa',`<div class="scroll"><table class="tc">${thG('Semana')}<tbody>${Object.entries(grupo(x=>x.sem||'(sin fecha)')).sort((a,b)=>b[0].localeCompare(a[0])).map(([k,g])=>fila(typeof semTxt==='function'&&k.includes('-S')?semTxt(k):k,g)).join('')}</tbody></table></div>`)}
+// Exportar a Excel lo filtrado (un renglón por OP).
+function hsExcel(){const L=hsFiltrar(hsDatos()).sort((a,b)=>String(a.fecha).localeCompare(String(b.fecha))||a.op.localeCompare(b.op));if(!L.length){alert('No hay OP con el filtro actual.');return}
+  const r2x=v=>v==null?'':Math.round(v*100)/100;
+  const A=L.map(x=>({'Fecha de programa':dmyISO(x.fecha),'Semana':x.sem,'Área':AREA_TXT[x.area]||'','OP':x.op,'Modelo':x.modelo,'Modelo principal':x.mp,'Muebles programados':x.mu||'',
+    'Hojas por mueble (esperadas)':r2x(x.esp),'Hojas por mueble (reales)':r2x(x.real),'Diferencia por mueble':r2x(x.difM),'Hojas esperadas (total)':x.k==='pend'||x.esp==null?'':r2x(x.esp*x.mu),
+    'Hojas reales (total)':x.real==null?'':r2x(x.real*x.mu),'Diferencia total':r2x(x.difT),'Variación %':x.difM!=null&&x.esp?Math.round(x.difM/x.esp*1000)/10:'','Estado':HSE[x.k].t,
+    'Programación por revisar':x.raro?'Sí':'','Comentario':x.com,'Capturado por':x.r?(x.r.por||''):'','Fecha de captura':x.r?dmy(x.r.ts):''}));
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(A),'Hojas single');XLSX.writeFile(wb,'hojas-single-'+ymd(new Date())+'.xlsx')}
+// Tolerancia (± hojas por mueble): la cambia Administración; se guarda en la configuración de la app.
+async function hsLeerTol(){try{if(NUBE){const {data}=await SBC.from('config').select('v').eq('k','hs_tol');hsTol=data&&data[0]&&fin(+data[0].v)?+data[0].v:0}else hsTol=+(localStorage.getItem('hs_tol')||0)||0}catch(e){hsTol=0}}
+async function hsGuardarTol(v){if(NUBE){const {error}=await SBC.from('config').upsert([{k:'hs_tol',v,updated_at:new Date().toISOString()}],{onConflict:'k'});if(error)throw new Error(error.message)}else localStorage.setItem('hs_tol',String(v));hsTol=v}
+$('#hstol').onchange=async e=>{const v=Math.max(0,num(e.target.value));e.target.value=v;try{await hsGuardarTol(v);$('#hstolmsg').textContent=`✓ Tolerancia guardada: ±${nfmt(v)} hoja(s) por mueble.`}catch(x){$('#hstolmsg').textContent='⚠ No se pudo guardar: '+x.message}};
+const hsRefrescar=()=>{hsLim=100;if(hsTab==='tab')hsTablero();else if(hsTab==='ana')hsAnalisis()};
+HSF.forEach(s=>$(s).addEventListener(s==='#hfq'?'input':'change',hsRefrescar));
+$('#hfclr').onclick=()=>{HSF.forEach(s=>$(s).value='');hsRefrescar()};
+$('#hfx').onclick=()=>hsExcel();
+$('#hsv-tab').addEventListener('click',e=>{const b=e.target.closest('[data-hst]');if(b){$('#hfs').value=$('#hfs').value===b.dataset.hst?'':b.dataset.hst;hsTablero();return}if(e.target.id==='hsmas'){hsLim+=100;hsTablero()}});
+$('#hsv-tab').addEventListener('change',e=>{if(e.target.id==='hsord'){hsOrden=e.target.value;hsTablero()}});
+
 /* ==== NAVEGACIÓN DEL MÓDULO ==== */
 let hsTab='prog';
 async function hsAbrir(t){t=t||hsTab;
   if(t!==hsTab&&hsTab==='cap'&&hcDirty()&&!confirm('Tienes cambios sin guardar en la captura. ¿Descartarlos?'))return;
   if(t!=='cap'){hcEdit={};hcExtra=[]}hsTab=t;
   document.querySelectorAll('#subhojas button').forEach(b=>b.classList.toggle('on',b.dataset.hs===hsTab));
-  ['prog','cap'].forEach(k=>$('#hsv-'+k).classList.toggle('hide',k!==hsTab));
-  try{stat('Cargando hojas single…');await hsCargarDatos();stat('')}catch(x){dbErr(x,'Hojas single')}
-  if(hsTab==='cap')hsCapturaView();else hsProgramaView();
+  ['prog','cap','tab','ana'].forEach(k=>$('#hsv-'+k).classList.toggle('hide',k!==hsTab));$('#hsflt').classList.toggle('hide',hsTab!=='tab'&&hsTab!=='ana');
+  try{stat('Cargando hojas single…');await Promise.all([hsCargarDatos(),hsLeerTol()]);stat('')}catch(x){dbErr(x,'Hojas single')}
+  $('#hstol').value=hsTol;
+  if(hsTab==='cap')hsCapturaView();else if(hsTab==='tab')hsTablero();else if(hsTab==='ana')hsAnalisis();else hsProgramaView();
 }
 $('#subhojas').addEventListener('click',e=>{const b=e.target.closest('[data-hs]');if(b)hsAbrir(b.dataset.hs)});
 $('#hsfile').onchange=e=>{const f=e.target.files[0];if(f)hsSubirExcel(f);e.target.value=''};
