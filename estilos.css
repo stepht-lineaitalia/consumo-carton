@@ -126,3 +126,4 @@ body.sidecol #side{display:none!important}
 li.alli{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
 /* Listas de resumen: viñetas simples (sin íconos ✓ / ⚠) */
 .rx-ok::before,.rx-at::before,.rx-in::before{content:"•";color:var(--mut)}
+.ressel{width:auto;margin-left:auto;font-size:13px;font-weight:400;padding:4px 8px}
