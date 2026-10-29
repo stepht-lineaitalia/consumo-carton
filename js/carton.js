@@ -739,10 +739,7 @@ function resumenEjecutivo(L,s,M,A,net,abs){
   else I.push(ok('El consumo real se mantuvo alineado con el esperado.'));
   // alertas pendientes (las informativas no cuentan)
   const pend=A.filter(a=>a[2]).length;
-  I.push(pend?at(`Hay <b>${pend} ${pl(pend,'alerta pendiente','alertas pendientes')}</b> de revisión (sección 3).`):ok('Sin alertas pendientes.'));
-  // modelos que requieren atención (pestaña Modelos)
-  const mr=M.lista.filter(m=>m.rev);
-  if(mr.length)I.push(at(`${pl(mr.length,'Modelo','Modelos')} que ${pl(mr.length,'requiere','requieren')} atención: `+mr.slice(0,3).map(m=>`<b>${esc(m.k)}</b> (${m.nf?`${m.nf} variante${m.nf>1?'s':''} fuera del patrón`:`${pct(m.R,m.E)} vs esperado`})`).join(', ')+(mr.length>3?` y ${mr.length-3} más`:'')+'.'));
+  I.push(pend?at(`Hay <b>${pend} ${pl(pend,'alerta pendiente','alertas pendientes')}</b> de revisión.`):ok('Sin alertas pendientes.'));
   // cartones que requieren atención: consumo fuera de tolerancia EN el cartón programado (sin contar cambios de cartón,
   // que ya se reportan arriba y distorsionarían el % de ambos anchos)
   const cr=grp(s.B.filter(r=>coin(r)!=='cambio'),r=>r.per.filter(p=>p.E&&p.R).map(p=>[p.a+' cm',p.E,p.R,p.R-p.E])).filter(c=>c.E&&Math.abs((c.R-c.E)/c.E*100)>tolv);
@@ -788,6 +785,8 @@ function motivosCambio(B){
     ${it.map(x=>`<div class="line"><i class="sw" style="background:${col[x.k]||'var(--acc)'}"></i> ${esc(x.t)}: <b>${x.n} (${x.p.toFixed(0)} %)</b></div>`).join('')}</section>`;
 }
 const lista=I=>'<ul class="rx">'+I.map(([k,t])=>`<li class="rx-${k}">${t}</li>`).join('')+'</ul>';
+let resSem='';
+$('#ana').addEventListener('change',e=>{if(e.target.id==='ressem'){resSem=e.target.value;analysis()}});
 function analysis(){
   weeks();const L=filt(),s=summ(L),M=modelosCalc(L),net=s.P+s.N,abs=s.P-s.N,comp=abs?(abs-Math.abs(net))/abs*100:0;
   $('#dsum').innerHTML=`${cnt(L)}: ${s.B.length} OP analizadas · ${s.inc.length} incompletos · ${s.incl.length} inclusiones · ${s.ingr.length} de ingeniería`;
@@ -796,7 +795,11 @@ function analysis(){
   const A0=alertas(L,s,M),AS=alertasSeparar(A0,1),A=AS.vis,okp=s.B.length?s.ok/s.B.length*100:0;   // A = alertas no descartadas
   // 1 · Resumen ejecutivo: conclusión automática (no repite los indicadores); solo situación general, alertas,
   //     modelos y cartones que requieren atención y desviaciones relevantes. Ver resumenEjecutivo().
-  const r1=resumenEjecutivo(L,s,M,A,net,abs);
+  // 1 · Resumen ejecutivo POR SEMANA (semana de registro; por defecto la más reciente del periodo filtrado)
+  const SW=[...new Set(L.map(r=>r.semana).filter(Boolean))].sort().reverse();if(!SW.includes(resSem))resSem=SW[0]||'';
+  const Lw=L.filter(r=>r.semana===resSem),sw=summ(Lw),Mw=modelosCalc(Lw),Aw=alertasSeparar(alertas(Lw,sw,Mw),1).vis;
+  const r1=`<div class="row" style="margin-bottom:6px"><label style="flex:0 1 280px">Semana<select id="ressem">${SW.map(w=>`<option value="${w}"${w===resSem?' selected':''}>${esc(semTxt(w))}</option>`).join('')}</select></label></div>`+
+    resumenEjecutivo(Lw,sw,Mw,Aw,sw.P+sw.N,sw.P-sw.N);
   // 2 · Indicadores
   const r2=`<div class="kpis">${K('Consumo esperado',fmt(s.E)+' m²')}${K('Consumo real',fmt(s.R)+' m²')}${K('Diferencia neta',sgm(net)+' m²','',pct(s.R,s.E))}${K('Diferencia absoluta',fmt(abs)+' m²')}${K('OP correctas',fmt(okp)+' %','',`${s.ok} de ${s.B.length}`)}</div>
     <h3>¿Se compensan los consumos de más y de menos?</h3>

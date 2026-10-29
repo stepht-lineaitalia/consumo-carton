@@ -124,3 +124,5 @@ body.sidecol #side{display:none!important}
 .alb{display:inline-flex;gap:6px;align-items:center;flex:0 0 auto}
 .aloff{background:none;border:0;color:var(--mut);font-size:18px;line-height:1;padding:2px 6px;border-radius:6px;cursor:pointer}.aloff:hover{color:var(--ink);background:rgba(0,0,0,.06)}
 li.alli{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+/* Listas de resumen: viñetas simples (sin íconos ✓ / ⚠) */
+.rx-ok::before,.rx-at::before,.rx-in::before{content:"•";color:var(--mut)}
