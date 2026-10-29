@@ -665,7 +665,7 @@ function alertas(L,s,M){
       ab.slice(0,8).map(g=>`<span class="sgl"><b>${esc(g.modelo)}</b> · ${g.n} OP · ${fmt(g.R)} m² · ${segChip(g.modelo)} <button class="btn ghost sm w" type="button" data-seg="${esc(g.modelo)}">Seguimiento</button></span>`).join('')+(ab.length>8?`<span class="sgl mut">y ${ab.length-8} modelo(s) más</span>`:''),'2|sinprog'])}
   if(ce.length)A.push(['st-ok',`✓ ${ce.length} modelo(s) con consumo sin programar ya <b>corregidos en origen</b>: ${ce.slice(0,6).map(g=>esc(g.modelo)).join(', ')}.`,'']);
   if(nd.length)A.push(['st-cambcons',`<b>${ops.size} OP con doble consumo</b> por revisar (${nd.length} captura(s) adicional(es)).`,'2|doble']);
-  if(M.fuera)A.push(['st-camb',`<b>${M.fuera} variante(s) fuera del patrón</b> en ${M.revisar} modelo(s) principal(es).`,'4|']);
+  // (pestaña Modelos oculta desde v5.12: la alerta de variantes fuera del patrón ya no se muestra porque no hay a dónde llevarla)
   // Lo marcado «Corregido» en el Tablero ya no cuenta como pendiente: la alerta muestra lo que falta y cuántos ya se corrigieron.
   const nk=k=>s.B.filter(r=>est(r).k===k);
   const alC=(cls,L,txt,cola,go)=>{if(!L.length)return;const p=L.filter(r=>!r.corr).length,c=L.length-p;

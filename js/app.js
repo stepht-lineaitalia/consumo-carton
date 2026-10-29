@@ -23,6 +23,7 @@ async function tab(n){verModulo('carton');if(n!==1&&!document.body.classList.con
   $('#flt').classList.toggle('hide',n===1);$('#ddetw').classList.toggle('hide',n!==2);
   if(n!==1){await reload();if(cur!==n)return}
   if(n===2)board();if(n===3)analysis();if(n===4)modelosView();if(n===1)misHoy()}
+// Pestañas ocultas a petición del negocio (el código se conserva para reactivarlas): Cartón → Modelos (tab 4) y Hojas single → Análisis.
 $('#t1').onclick=()=>tab(1);$('#t2').onclick=()=>tab(2);$('#t3').onclick=()=>tab(3);$('#t4').onclick=()=>tab(4);
 /* ==== SESIÓN, ROLES Y OPERADOR ====
    Modo local: «Modo admin» con contraseña en el navegador (como en 4.x).

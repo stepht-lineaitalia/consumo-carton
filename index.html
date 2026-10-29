@@ -4,22 +4,22 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Consumo de cartón</title>
-<meta name="version" content="5.11.1">
+<meta name="version" content="5.12.0">
 <link rel="stylesheet" href="vendor/fonts.css">
 <script src="vendor/xlsx.full.min.js"></script>
 <script src="vendor/supabase.min.js"></script>
 <!-- config.js: URL y clave pública del proyecto de Supabase. Vacío = la app trabaja solo en el navegador. Ver GUIA-NUBE.md -->
 <script src="config.js"></script>
-<link rel="stylesheet" href="estilos.css?v=5.11.1">
+<link rel="stylesheet" href="estilos.css?v=5.12.0">
 </head>
 <body>
 <div class="shell">
 <!-- Menú de Administración (no lo ve Planta): módulos Cartón, Hojas single y Comparativo de consumos. Ver irModulo() en js/app.js -->
 <nav id="side" class="adm" aria-label="Módulos">
 <div class="mod"><button class="mh on" data-mod="carton" type="button">Cartón</button>
-<div class="subm" id="subcarton"><button id="t1" class="on w" type="button">Captura</button><button id="t3" type="button">Análisis</button><button id="t4" type="button">Modelos</button><button id="t2" type="button">Tablero</button></div></div>
+<div class="subm" id="subcarton"><button id="t1" class="on w" type="button">Captura</button><button id="t3" type="button">Análisis</button><button id="t4" class="hide" type="button">Modelos</button><button id="t2" type="button">Tablero</button></div></div>
 <div class="mod"><button class="mh" data-mod="hojas" type="button">Hojas single</button>
-<div class="subm hide" id="subhojas"><button data-hs="prog" class="on" type="button">Programa</button><button data-hs="cap" class="w" type="button">Captura</button><button data-hs="tab" type="button">Tablero</button><button data-hs="ana" type="button">Análisis</button></div></div>
+<div class="subm hide" id="subhojas"><button data-hs="prog" class="on" type="button">Programa</button><button data-hs="cap" class="w" type="button">Captura</button><button data-hs="tab" type="button">Tablero</button><button data-hs="ana" class="hide" type="button">Análisis</button></div></div>
 <div class="mod"><button class="mh" data-mod="ambos" type="button">Comparativo de consumos</button></div>
 </nav>
 <main>
@@ -142,10 +142,10 @@
 </main>
 </div>
 
-<script src="js/comun.js?v=5.11.1"></script>
-<script src="js/carton.js?v=5.11.1"></script>
-<script src="js/hojas.js?v=5.11.1"></script>
-<script src="js/comparativo.js?v=5.11.1"></script>
-<script src="js/app.js?v=5.11.1"></script>
+<script src="js/comun.js?v=5.12.0"></script>
+<script src="js/carton.js?v=5.12.0"></script>
+<script src="js/hojas.js?v=5.12.0"></script>
+<script src="js/comparativo.js?v=5.12.0"></script>
+<script src="js/app.js?v=5.12.0"></script>
 </body>
 </html>
