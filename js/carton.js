@@ -379,6 +379,9 @@ $('#file').onchange=async e=>{
 // Esperado, diferencias, estados y alertas viven en administración (Análisis, Modelos, Tablero).
 // Motivos del cambio de cartón (fuente única: agregar o quitar un motivo = una línea aquí).
 const MOTIVOS={exist:'No hay en existencia',inc:'Cartón incorrecto'};
+// EXCEPCIÓN: cambio de cartón porque «No hay en existencia» (todos los motivos de la captura son ese). No genera alertas,
+// no cuenta como «por corregir» ni como cambio de cartón en el resumen; el estado se sigue mostrando, con la nota «Excepción».
+const esExcep=r=>r.kind==='op'&&Array.isArray(r.mcc)&&r.mcc.length>0&&r.mcc.every(m=>m.m==='exist')&&['camb','cambcons'].includes(est(r).k);
 const motTxt=r=>[...new Set((r.mcc||[]).map(x=>MOTIVOS[x.m]||x.m))].join(', ');
 // Fecha ISO (aaaa-mm-dd) → dd/mm/aaaa
 const fISO=s=>{const m=String(s||'').match(/^(\d{4})-(\d\d)-(\d\d)/);return m?m[3]+'/'+m[2]+'/'+m[1]:''};
@@ -608,7 +611,7 @@ function cajasTxt(r){const P=r.per||[],S=f=>P.filter(f).reduce((s,p)=>s+p.cr,0),
 let cur=1,lim=100;const refresh=()=>cur===3?analysis():cur===4?modelosView():board();
 // «Corregido» (marca de administración en el Tablero, columna visible solo con Detalle): para registros que no son
 // «Correcto». No cambia estados ni indicadores; solo reduce las alertas pendientes (sección 3) y alimenta el filtro.
-const porCorregir=r=>{const c=est(r).cls;return c==='bad'||c==='pend'};
+const porCorregir=r=>{const c=est(r).cls;return(c==='bad'||c==='pend')&&!esExcep(r)};
 function celdaCorr(r){if(!porCorregir(r))return'';
   if(r.corr)return`<span class="chip ok">✓ Corregido</span><br><span class="mut">${esc(r.corr.por||'')} · ${dmy(r.corr.ts)}</span><br><a href="#" class="adm w" data-uncorr="${r.id}">Deshacer</a>`;
   return`<button class="btn ghost sm adm w" data-corr="${r.id}" type="button">Marcar corregido</button>`}
@@ -635,7 +638,7 @@ function row(r){const e=est(r),op=r.kind==='op',was=r.est&&r.est!==e.t?`<br><spa
   const dbl=esDoble(r)?(r.rev?'<br><span class="chip na">OP doble consumo · revisada</span>':`<br><span class="chip bad">OP doble consumo · requiere revisión</span> <button class="btn ghost sm adm w" data-rev="${r.id}" type="button">Revisada: válida</button>`):'';
   return`<tr class="r-${e.k}"><td>${new Date(r.ts).toLocaleString('es-MX',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}<br><span class="mut">Sem. ${esc(r.semana)}</span>${r.operador?`<br><span class="mut">${esc(r.operador)}</span>`:''}</td>
   <td><b>${esc(r.modelo)}</b><br><span class="mut">${esc(r.op)} · ${esc(tipoReg(r))} · ${clase(r.modelo)}</span>${op&&opDesconocida(r.op)?' <span class="chip pend">revisar tipo de OP</span>':''}${op&&r.venc?`<br><small class="fp">Programa ${fISO(r.venc)}</small>`:''}</td>
-  <td>${chipE(e)}${e.c&&e.c!=='—'?`<br><span class="mut">${esc(e.c)}</span>`:''}${was}${dbl}${e.k==='sinprog'?'<br>'+segChip(r.modelo)+` <button class="btn ghost sm adm w" data-seg="${esc(r.modelo)}" type="button">Seguimiento</button>`:''}</td>
+  <td>${chipE(e)}${esExcep(r)?'<br><span class="chip na">Excepción: no había en existencia</span>':''}${e.c&&e.c!=='—'?`<br><span class="mut">${esc(e.c)}</span>`:''}${was}${dbl}${e.k==='sinprog'?'<br>'+segChip(r.modelo)+` <button class="btn ghost sm adm w" data-seg="${esc(r.modelo)}" type="button">Seguimiento</button>`:''}</td>
   <td>${colCarton(r)}</td>
   ${op&&porCarton(r).length>1?celdasCarton(r):`<td class="n">${op?fmt(r.E):'—'}</td><td class="n">${fmt(r.R+(r.Rsp||0))}</td><td class="n">${op?(fueraTol(r)?'<b>'+sgm(r.diff)+'</b>':sgm(r.diff)):'—'}${r.Rsp?`<br><span class="c-sinprog">+${fmt(r.Rsp)} sin programar</span>`:''}</td>`}
   <td>${op?cajasTxt(r):r.cr}</td><td class="det ccor">${celdaCorr(r)}</td><td class="det">${detail(r)}</td>
@@ -667,7 +670,7 @@ function alertas(L,s,M){
   if(nd.length)A.push(['st-cambcons',`<b>${ops.size} OP con doble consumo</b> por revisar (${nd.length} captura(s) adicional(es)).`,'2|doble']);
   // (pestaña Modelos oculta desde v5.12: la alerta de variantes fuera del patrón ya no se muestra porque no hay a dónde llevarla)
   // Lo marcado «Corregido» en el Tablero ya no cuenta como pendiente: la alerta muestra lo que falta y cuántos ya se corrigieron.
-  const nk=k=>s.B.filter(r=>est(r).k===k);
+  const nk=k=>s.B.filter(r=>est(r).k===k&&!esExcep(r));   // las excepciones («No hay en existencia») no alertan
   const alC=(cls,L,txt,cola,go)=>{if(!L.length)return;const p=L.filter(r=>!r.corr).length,c=L.length-p;
     if(p)A.push([cls,`<b>${txt(p)}</b>${cola}`+(c?` <span class="mut">(${c} ya ${c>1?'corregidos':'corregido'})</span>`:''),go]);
     else A.push(['st-ok',`✓ ${txt(L.length)}: ${L.length>1?'todos corregidos':'corregido'}.`,''])};
@@ -726,8 +729,8 @@ function resumenEjecutivo(L,s,M,A,net,abs){
   I.push(b(v==null?'Sin consumo esperado para comparar.':Math.abs(v)<0.05?'El consumo real es igual al esperado.':`El consumo real está <b>${Math.abs(v).toFixed(1)} % ${v>0?'por encima':'por debajo'}</b> del esperado.`));
   const fT=s.B.filter(fueraTol).length;
   I.push(b(`<b>${fT} de ${n} OP</b> ${pl(fT,'quedó','quedaron')} fuera de la tolerancia de consumo (±${tolv} %).`));
-  const cb=s.B.filter(r=>coin(r)==='cambio').length;
-  I.push(b(cb?`<b>${cb}</b> ${pl(cb,'cambio','cambios')} de cartón.`:'Sin cambios de cartón.'));
+  const cb=s.B.filter(r=>coin(r)==='cambio'&&!esExcep(r)).length,cbx=s.B.filter(esExcep).length;
+  I.push(b((cb?`<b>${cb}</b> ${pl(cb,'cambio','cambios')} de cartón.`:'Sin cambios de cartón.')+(cbx?` <span class="mut">Además, ${cbx} por falta de existencia (excepción, no se alerta).</span>`:'')));
   const EX=s.B.filter(r=>coin(r)==='extra'),cx=EX.reduce((t,r)=>t+(r.per||[]).filter(p=>!pg(p)&&p.R>0&&!p.sp).reduce((u,p)=>u+(p.cr||0),0),0);
   I.push(b(EX.length?`<b>${cx}</b> ${pl(cx,'caja extra','cajas extra')} (en ${EX.length} OP).`:'Sin cajas extra.'));
   const pend=A.filter(a=>a[2]).length;

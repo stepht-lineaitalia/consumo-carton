@@ -7,7 +7,7 @@ function cmpDatos(){
   const C={};vis().filter(r=>r.kind==='op').sort((a,b)=>a.ts-b.ts).forEach(r=>{const o=C[r.op]||(C[r.op]={n:0});o.n++;o.r=r});
   const H={};hsDatos().forEach(x=>H[x.op]=x);
   return[...new Set([...Object.keys(C),...Object.keys(H)])].map(op=>{const c=C[op],h=H[op],r=c&&c.r;
-    const e=r?est(r):null,cDif=!!e&&e.cls==='bad',hReg=!!(h&&h.r),hDif=!!h&&(h.k==='mas'||h.k==='menos');
+    const e=r?est(r):null,cDif=!!e&&e.cls==='bad'&&!esExcep(r),hReg=!!(h&&h.r),hDif=!!h&&(h.k==='mas'||h.k==='menos');
     // «Corregida»: cada material que necesitaba corrección ya tiene la marca (Cartón: Corregido · Hojas: Corregido).
     const cNec=!!r&&porCorregir(r),cOk=cNec&&!!r.corr,hNec=!!h&&hsPorCorregir(h),hOk=hNec&&!!h.r.rev,corregida=(cNec||hNec)&&(!cNec||cOk)&&(!hNec||hOk);
     return{cOk,hOk,corregida,op,modelo:(r&&r.modelo)||(h&&h.modelo)||'',fecha:(h&&h.fecha)||(r&&r.venc)||'',area:h&&h.area||'',c:r?{r,e,n:c.n}:null,h:h||null,hReg,cDif,hDif,
