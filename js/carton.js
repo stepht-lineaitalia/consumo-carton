@@ -564,20 +564,18 @@ let DBL=new Set();
 function idxDobles(){DBL=new Set();const by={};vis().filter(r=>r.kind==='op').sort((a,b)=>a.ts-b.ts||String(a.id).localeCompare(String(b.id))).forEach(r=>{if(by[r.op])DBL.add(r.id);else by[r.op]=1})}
 const esDoble=r=>DBL.has(r.id),doblePend=r=>esDoble(r)&&!r.rev;
 function weeks(){const R=vis();
-  opts('#fw',[...new Set(R.map(r=>r.semana))].sort().reverse(),'Todas');
-  opts('#fv',[...new Set(R.map(vencW).filter(Boolean))].sort().reverse(),'Todas');
   opts('#fo',[...new Set(R.filter(r=>r.kind==='op').map(tipoReg))].sort(),'Todos')}
 // Filtro de Estado: «con diferencia (todas)», cada estado de ESTADOS y la bandera de OP doble consumo.
 const SF={bad:e=>e.cls==='bad',...Object.fromEntries(ESTADOS.map(x=>[x.k,e=>e.k===x.k]))};
 $('#fs').innerHTML='<option value="">Todos</option><option value="bad">Con diferencia (todas)</option>'+ESTADOS.map(x=>`<option value="${x.k}">${esc(x.t)}</option>`).join('')+'<option value="doble">OP doble consumo (por revisar)</option><option value="pcorr">Pendientes de corregir</option>';
-const FSEL=['#ff','#ft','#fw','#fv','#fk','#fo','#fc','#fs','#fq'];
+const FSEL=['#ff','#ft','#fk','#fo','#fc','#fs','#fq'];
 const fAct=()=>FSEL.filter(x=>$(x).value.trim()).length;
 const cnt=L=>{const a=fAct();return`${L.length} de ${vis().length} guardados`+(a?` <b style="color:var(--warn)">⚠ ${a} filtro${a>1?'s':''} activo${a>1?'s':''}</b>`:'')+(DB.repaired?` · <span style="color:var(--warn)">${DB.repaired} reparado${DB.repaired>1?'s':''} al leer</span>`:'')};
 function filt(){
   idxDobles();
-  const f=$('#ff').value,t=$('#ft').value,w=$('#fw').value,v=$('#fv').value,k=$('#fk').value,o=$('#fo').value,c=$('#fc').value,fs=$('#fs').value,sp=SF[fs],q=$('#fq').value.trim().toLowerCase();
+  const f=$('#ff').value,t=$('#ft').value,k=$('#fk').value,o=$('#fo').value,c=$('#fc').value,fs=$('#fs').value,sp=SF[fs],q=$('#fq').value.trim().toLowerCase();
   const dOps=fs==='doble'?new Set(vis().filter(doblePend).map(r=>r.op)):null;   // muestra TODOS los reportes de la OP para comparar
-  return vis().filter(r=>{const d=ymd(new Date(r.ts));return(!f||d>=f)&&(!t||d<=t)&&(!w||r.semana===w)&&(!v||vencW(r)===v)&&(!k||r.kind===k)&&(!o||(r.kind==='op'&&tipoReg(r)===o))&&(!c||clase(r.modelo)===c)&&(!dOps||(r.kind==='op'&&dOps.has(r.op)))&&(fs!=='pcorr'||(porCorregir(r)&&!r.corr))&&(!sp||sp(est(r)))&&(!q||[r.modelo,r.op,tipoReg(r),modeloPrincipal(r.modelo)].join(' ').toLowerCase().includes(q))}).sort((a,b)=>b.ts-a.ts);
+  return vis().filter(r=>{const d=ymd(new Date(r.ts));return(!f||d>=f)&&(!t||d<=t)&&(!k||r.kind===k)&&(!o||(r.kind==='op'&&tipoReg(r)===o))&&(!c||clase(r.modelo)===c)&&(!dOps||(r.kind==='op'&&dOps.has(r.op)))&&(fs!=='pcorr'||(porCorregir(r)&&!r.corr))&&(!sp||sp(est(r)))&&(!q||[r.modelo,r.op,tipoReg(r),modeloPrincipal(r.modelo)].join(' ').toLowerCase().includes(q))}).sort((a,b)=>b.ts-a.ts);
 }
 // Detalle del Tablero: consumo POR UNIDAD (mueble de la OP = Cant del ERP). Solo presenta; no cambia ningún cálculo.
 const bul=(t,v)=>`<div class="line">• ${t}: <b>${v.replace(/ (m²|cm)/g,'&nbsp;$1')}</b></div>`,dh=t=>`<div class="dh">${t}</div>`;
@@ -657,6 +655,25 @@ function board(){
 }
 const hbars=a=>{const mx=Math.max(0.001,...a.map(x=>Math.max(x.P,-x.N)));return a.map(x=>`<div class="hb"><span title="${esc(x.k)}">${esc(x.k)}</span><div class="tr"><div class="l"><i class="nb" style="width:${-x.N/mx*100}%"></i></div><div class="r"><i class="pb" style="width:${x.P/mx*100}%"></i></div></div><span><b>${sgm(x.R-x.E)} m²</b> · ${pct(x.R,x.E)}<br><span class="mut">abs ${fmt(x.P-x.N)} · ${x.n} reg.</span></span></div>`).join('')||'<p class="mut">Sin datos.</p>'};
 const gbars=a=>{const mx=Math.max(0.001,...a.map(x=>Math.max(x.E,x.R)));return'<div class="gb">'+a.map(x=>`<div><div class="pr"><i class="e" style="height:${x.E/mx*100}%"></i><i class="re" style="height:${x.R/mx*100}%"></i></div>${esc(x.k)}<br>${fmt(x.E)} / ${fmt(x.R)}<br><span class="mut">${pct(x.R,x.E)}</span></div>`).join('')+'</div>'};
+// 4 · Esperado vs real por semana en LÍNEAS (SVG). La semana elegida en el Resumen ejecutivo se marca con una banda.
+function lsem(a,sel){
+  if(!a.length)return'<p class="mut">Sin datos.</p>';
+  const W=Math.max(320,a.length*90),H=200,pl=48,pr=16,pt=14,pb=42,iw=W-pl-pr,ih=H-pt-pb,n=a.length;
+  const mx=Math.max(0.001,...a.map(x=>Math.max(x.E,x.R)))*1.1,X=i=>pl+(n===1?iw/2:i*iw/(n-1)),Y=v=>pt+ih-v/mx*ih;
+  const tk=[0,.25,.5,.75,1].map(f=>f*mx),pts=k=>a.map((x,i)=>X(i).toFixed(1)+','+Y(x[k]).toFixed(1)).join(' ');
+  const bw=n===1?iw:iw/(n-1);
+  let g=tk.map(v=>`<line x1="${pl}" x2="${W-pr}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--line)" stroke-width="1"/><text x="${pl-6}" y="${Y(v)+4}" text-anchor="end" font-size="11" fill="var(--mut)">${fmt(v)}</text>`).join('');
+  a.forEach((x,i)=>{if(x.k===sel)g+=`<rect x="${X(i)-bw/2}" y="${pt}" width="${bw}" height="${ih}" fill="var(--acc)" opacity=".08"/>`});
+  g+=`<polyline points="${pts('E')}" fill="none" stroke="#8aa0b3" stroke-width="2.5" stroke-linejoin="round"/>`+
+     `<polyline points="${pts('R')}" fill="none" stroke="var(--acc)" stroke-width="2.5" stroke-linejoin="round"/>`;
+  a.forEach((x,i)=>{const b=x.k===sel?' font-weight="700"':'';
+    g+=`<g><title>${esc(x.k)}: esperado ${fmt(x.E)} m² · real ${fmt(x.R)} m² (${pct(x.R,x.E)})</title>`+
+      `<circle cx="${X(i)}" cy="${Y(x.E)}" r="4" fill="#8aa0b3"/><circle cx="${X(i)}" cy="${Y(x.R)}" r="4" fill="var(--acc)"/>`+
+      `<rect x="${X(i)-bw/2}" y="${pt}" width="${bw}" height="${ih}" fill="transparent"/></g>`+
+      `<text x="${X(i)}" y="${H-pb+16}" text-anchor="middle" font-size="11" fill="var(--ink)"${b}>${esc(String(x.k).replace(/^\d{4}-/,''))}</text>`+
+      `<text x="${X(i)}" y="${H-pb+31}" text-anchor="middle" font-size="11" fill="var(--mut)"${b}>${pct(x.R,x.E)}</text>`});
+  return`<div class="scroll"><svg viewBox="0 0 ${W} ${H}" width="100%" style="min-width:${Math.min(W,560)}px;max-height:260px;display:block" role="img" aria-label="Consumo esperado y real por semana">${g}</svg></div>`;
+}
 const K=(t,v,c,sub)=>`<div class="kpi"><span class="mut">${t}</span><b class="${c||''}">${v}</b>${sub?`<span class="mut">${sub}</span>`:''}</div>`;
 const SEC=(n,t,body,id)=>`<section class="card sec"${id?` id="${id}"`:''}><h2><span class="sn">${n}</span> ${t}</h2>${body}</section>`;
 // Alertas importantes (sección 3): cada una lleva directo a donde se revisa.
@@ -743,9 +760,9 @@ const DIAS=['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'
 function lunesDe(w){const m=String(w).match(/^(\d{4})-S(\d\d)$/);if(!m)return null;const y=+m[1],j=new Date(y,0,4),l=new Date(y,0,4-((j.getDay()+6)%7));l.setDate(l.getDate()+(+m[2]-1)*7);return l}
 const semTxt=w=>{const l=lunesDe(w);if(!l)return w;const v=new Date(l);v.setDate(v.getDate()+4);return`${w.replace(/^\d{4}-/,'')} · ${dmy(l)} – ${dmy(v)}`};
 let diaSem='';
-function porDia(B){
+function porDia(B,fija){
   const ws=[...new Set(B.map(r=>r.semana))].sort().reverse();if(!ws.length)return'';
-  if(!ws.includes(diaSem))diaSem=ws[0];
+  if(fija)diaSem=fija;else if(!ws.includes(diaSem))diaSem=ws[0];
   const l=lunesDe(diaSem),Rw=B.filter(r=>r.semana===diaSem),D=[];
   for(let i=0;i<7;i++){const d=new Date(l);d.setDate(l.getDate()+i);const k=ymd(d),rs=Rw.filter(r=>ymd(new Date(r.ts))===k);
     if(i>=5&&!rs.length)continue;
@@ -758,7 +775,7 @@ function porDia(B){
   else{con=`El <b>${dl(top)}</b> concentró la mayor diferencia (${fmt(top.abs)} m², ${(top.abs/T*100).toFixed(0)} % de la semana)`;
     const mc=D.reduce((a,x)=>x.cb>a.cb?x:a,D[0]);
     if(CB&&top.cb)con+=` y ${top.cb} de los ${CB} cambios de cartón`;else if(CB)con+=`; más cambios de cartón: ${dl(mc)} (${mc.cb} de ${CB})`;con+='.'}
-  const sel=`<label class="mut" style="max-width:340px">Semana<select id="dsem">${ws.map(w=>`<option value="${esc(w)}"${w===diaSem?' selected':''}>${esc(semTxt(w))}</option>`).join('')}</select></label>`;
+  const sel=fija?'':`<label class="mut" style="max-width:340px">Semana<select id="dsem">${ws.map(w=>`<option value="${esc(w)}"${w===diaSem?' selected':''}>${esc(semTxt(w))}</option>`).join('')}</select></label>`;
   const bars='<div class="gb">'+D.map(x=>`<div class="${top&&x===top?'mx':''}"><div class="pr"><i class="d" style="height:${x.abs/mxA*100}%"></i></div>${x.k}<br><span class="mut">${x.f}</span><br>${fmt(x.abs)} m²</div>`).join('')+'</div>';
   const tb=`<div class="scroll"><table class="tc"><thead><tr><th>Día</th><th>OP</th><th>Fuera de tolerancia</th><th>Cambios de cartón</th><th>Caja Extra</th><th>Dif. neta (m²)</th><th>Dif. absoluta (m²)</th></tr></thead><tbody>${
     D.map(x=>{const b=v=>top&&x===top?`<b>${v}</b>`:v;return`<tr><td>${b(x.k+' '+x.f)}</td><td>${x.n}</td><td>${x.ft}</td><td>${x.cb}</td><td>${x.ex}</td><td>${b(x.n?sgm(x.net):'—')}</td><td>${b(x.n?fmt(x.abs):'—')}</td></tr>`}).join('')}</tbody></table></div>`;
@@ -779,20 +796,19 @@ const lista=I=>'<ul class="rx">'+I.map(([k,t])=>`<li class="rx-${k}">${t}</li>`)
 let resSem='';
 $('#ana').addEventListener('change',e=>{if(e.target.id==='ressem'){resSem=e.target.value;analysis()}});
 function analysis(){
-  weeks();const L=filt(),s=summ(L),M=modelosCalc(L),net=s.P+s.N,abs=s.P-s.N,comp=abs?(abs-Math.abs(net))/abs*100:0;
+  // La semana elegida en el Resumen ejecutivo (esquina del título) controla TODA la página: L = registros de esa semana.
+  // «Global» = todo el periodo filtrado. Solo el gráfico de la sección 4 conserva todas las semanas (tendencia) y marca la elegida.
+  weeks();const LT=filt(),SW=[...new Set(LT.map(r=>r.semana).filter(Boolean))].sort().reverse();
+  if(resSem!=='*'&&!SW.includes(resSem))resSem=SW[0]||'*';
+  const L=resSem==='*'?LT:LT.filter(r=>r.semana===resSem),s=summ(L),sT=summ(LT),M=modelosCalc(L),net=s.P+s.N,abs=s.P-s.N,comp=abs?(abs-Math.abs(net))/abs*100:0;
+  const fSem=w=>{const l=lunesDe(w);if(!l)return w;const v=new Date(l);v.setDate(v.getDate()+4);return dmy(l)+' – '+dmy(v)};
+  const selSem=`<select id="ressem" class="ressel" title="Semana que se analiza en toda la página"><option value="*"${resSem==='*'?' selected':''}>Global</option>${SW.map(w=>`<option value="${w}"${w===resSem?' selected':''}>${esc(fSem(w))}</option>`).join('')}</select>`;
   $('#dsum').innerHTML=`${cnt(L)}: ${s.B.length} OP analizadas · ${s.inc.length} incompletos · ${s.incl.length} inclusiones · ${s.ingr.length} de ingeniería`;
-  if(!s.B.length&&!s.sn.length){$('#ana').innerHTML='<div class="card mut">No hay registros con estos filtros para analizar.</div>';return}
+  if(!s.B.length&&!s.sn.length){$('#ana').innerHTML=(SW.length?SEC(1,'Resumen ejecutivo'+selSem,''):'')+'<div class="card mut">No hay registros con estos filtros para analizar.</div>';return}
   const lg1='<p class="mut"><i class="sw e"></i> Esperado &nbsp;<i class="sw re"></i> Real</p>',lg2='<p class="mut"><i class="sw nb"></i> Consumió de menos &nbsp;<i class="sw pb"></i> Consumió de más</p>';
   const A0=alertas(L,s,M),AS=alertasSeparar(A0,1),A=AS.vis,okp=s.B.length?s.ok/s.B.length*100:0;   // A = alertas no descartadas
-  // 1 · Resumen ejecutivo: conclusión automática (no repite los indicadores); solo situación general, alertas,
-  //     modelos y cartones que requieren atención y desviaciones relevantes. Ver resumenEjecutivo().
-  // 1 · Resumen ejecutivo POR SEMANA (semana de registro; por defecto la más reciente del periodo filtrado)
-  //     Opciones: cada semana (con sus fechas, lunes a viernes) y «Global» = todo el periodo filtrado. El selector va en la esquina del título.
-  const SW=[...new Set(L.map(r=>r.semana).filter(Boolean))].sort().reverse();if(resSem!=='*'&&!SW.includes(resSem))resSem=SW[0]||'*';
-  const Lw=resSem==='*'?L:L.filter(r=>r.semana===resSem),sw=summ(Lw),Mw=modelosCalc(Lw),Aw=alertasSeparar(alertas(Lw,sw,Mw),1).vis;
-  const fSem=w=>{const l=lunesDe(w);if(!l)return w;const v=new Date(l);v.setDate(v.getDate()+4);return dmy(l)+' – '+dmy(v)};
-  const selSem=`<select id="ressem" class="ressel" title="Periodo del resumen"><option value="*"${resSem==='*'?' selected':''}>Global</option>${SW.map(w=>`<option value="${w}"${w===resSem?' selected':''}>${esc(fSem(w))}</option>`).join('')}</select>`;
-  const r1=resumenEjecutivo(Lw,sw,Mw,Aw,sw.P+sw.N,sw.P-sw.N);
+  // 1 · Resumen ejecutivo (semana elegida o Global). Ver resumenEjecutivo().
+  const r1=resumenEjecutivo(L,s,M,A,net,abs);
   // 2 · Indicadores
   const r2=`<div class="kpis">${K('Consumo esperado',fmt(s.E)+' m²')}${K('Consumo real',fmt(s.R)+' m²')}${K('Diferencia neta',sgm(net)+' m²','',pct(s.R,s.E))}${K('Diferencia absoluta',fmt(abs)+' m²')}${K('OP correctas',fmt(okp)+' %','',`${s.ok} de ${s.B.length}`)}</div>
     <h3>¿Se compensan los consumos de más y de menos?</h3>
@@ -807,7 +823,7 @@ function analysis(){
   const T=s.cruceTot,celda=c=>c.n?`${c.n} · <b>${sgm(c.R-c.E)}</b> <span class="mut">${pct(c.R,c.E)}</span>`:'<span class="mut">—</span>';
   const fila=w=>`<tr><td><b>${esc(w.k)}</b></td><td>${w.n}</td><td>${w.ok}</td><td>${celda(w.mismo)}</td><td>${celda(w.cambio)}</td><td>${celda(w.extra)}</td><td><b>${sgm(w.R-w.E)}</b> <span class="mut">${pct(w.R,w.E)}</span></td></tr>`;
   const sh=c=>T.A?fmt(T[c].A/T.A*100)+' %':'—';
-  const r4=`${lg1}${gbars(s.semana)}
+  const r4=`${lg1}${lsem(sT.semana.length?sT.semana:s.semana,resSem)}${resSem!=='*'?'<p class="mut">La banda marca la semana elegida; el resto de la sección es solo de esa semana.</p>':''}
     <h3>Semana × coincidencia de cartón</h3>
     <div class="kpis">${K('Mismo cartón',T.mismo.n+' OP','',`${sh('mismo')} de la diferencia absoluta`)}${K('Cambio de cartón',T.cambio.n+' OP','',`${sh('cambio')} de la diferencia absoluta`)}${K('Caja Extra',T.extra.n+' OP','',`${sh('extra')} de la diferencia absoluta`)}</div>
     <div class="scroll"><table class="tc"><thead><tr><th>Semana</th><th>OP</th><th>Correctas</th><th><span class="chip st st-ok">Mismo cartón</span><br><span class="mut">OP · dif m² · %</span></th><th><span class="chip st st-camb">Cambio de cartón</span><br><span class="mut">OP · dif m² · %</span></th><th><span class="chip st st-extra">Caja Extra</span><br><span class="mut">OP · dif m² · %</span></th><th>Total<br><span class="mut">dif m² · %</span></th></tr></thead>
@@ -820,7 +836,7 @@ function analysis(){
     <h3>Por tipo de OP</h3>${lg2}${hbars(s.tipoOp)}<h3>Folio vs Línea</h3>${lg1}${gbars(s.clase)}
     <h3>Inclusiones por modelo (m² reales)</h3>${s.modInc.length?s.modInc.slice(0,12).map(x=>`<div class="line"><b>${fmt(x.R)} m²</b> · ${esc(x.k)} <span class="mut">(${x.n} reg.)</span></div>`).join(''):'<p class="mut">Sin inclusiones.</p>'}</details>`;
   $('#ana').innerHTML=SEC(1,'Resumen ejecutivo'+selSem,r1)+SEC(2,'Indicadores principales',r2)+SEC(3,'Alertas importantes',r3)+
-    (s.B.length?SEC(4,'Consumo esperado vs real por semana',r4)+SEC(5,'Por día de la semana',porDia(s.B),'sdia')+SEC(6,'Diferencias por modelo',r5)+SEC(7,'Diferencias por tipo de cartón',r6):'')+mas+motivosCambio(s.B)+
+    (s.B.length?SEC(4,'Consumo esperado vs real por semana',r4)+SEC(5,'Por día de la semana',porDia(s.B,resSem==='*'?'':resSem),'sdia')+SEC(6,'Diferencias por modelo',r5)+SEC(7,'Diferencias por tipo de cartón',r6):'')+mas+motivosCambio(s.B)+
     `<p class="mut">8 · Seguimiento de modelos → pestaña <b>Modelos</b> · 9 · Detalle completo → pestaña <b>Tablero</b></p>`;
   const ds=$('#dsem');if(ds)ds.onchange=()=>{diaSem=ds.value;const y=window.scrollY;analysis();try{window.scrollTo(0,y)}catch(x){}};
 }
