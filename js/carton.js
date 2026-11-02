@@ -655,24 +655,37 @@ function board(){
 }
 const hbars=a=>{const mx=Math.max(0.001,...a.map(x=>Math.max(x.P,-x.N)));return a.map(x=>`<div class="hb"><span title="${esc(x.k)}">${esc(x.k)}</span><div class="tr"><div class="l"><i class="nb" style="width:${-x.N/mx*100}%"></i></div><div class="r"><i class="pb" style="width:${x.P/mx*100}%"></i></div></div><span><b>${sgm(x.R-x.E)} m²</b> · ${pct(x.R,x.E)}<br><span class="mut">abs ${fmt(x.P-x.N)} · ${x.n} reg.</span></span></div>`).join('')||'<p class="mut">Sin datos.</p>'};
 const gbars=a=>{const mx=Math.max(0.001,...a.map(x=>Math.max(x.E,x.R)));return'<div class="gb">'+a.map(x=>`<div><div class="pr"><i class="e" style="height:${x.E/mx*100}%"></i><i class="re" style="height:${x.R/mx*100}%"></i></div>${esc(x.k)}<br>${fmt(x.E)} / ${fmt(x.R)}<br><span class="mut">${pct(x.R,x.E)}</span></div>`).join('')+'</div>'};
-// 4 · Esperado vs real por semana en LÍNEAS (SVG). La semana elegida en el Resumen ejecutivo se marca con una banda.
+// 4 · Esperado vs real por semana en LÍNEAS (SVG), siempre con todas las semanas del periodo filtrado.
+// Colores con significado: esperado = meta (línea punteada neutra) con su banda de tolerancia (±tolv %);
+// real = línea oscura con puntos y % en verde (dentro de tolerancia), rojo (consumió de más) o ámbar (consumió de menos).
+// La semana elegida en el Resumen ejecutivo se marca con una banda.
+const colSem=x=>{const v=x.E?(x.R-x.E)/x.E*100:0;return Math.abs(v)<=tolv?'var(--ok)':v>0?'var(--bad)':'var(--warn)'};
 function lsem(a,sel){
   if(!a.length)return'<p class="mut">Sin datos.</p>';
-  const W=Math.max(320,a.length*90),H=200,pl=48,pr=16,pt=14,pb=42,iw=W-pl-pr,ih=H-pt-pb,n=a.length;
-  const mx=Math.max(0.001,...a.map(x=>Math.max(x.E,x.R)))*1.1,X=i=>pl+(n===1?iw/2:i*iw/(n-1)),Y=v=>pt+ih-v/mx*ih;
-  const tk=[0,.25,.5,.75,1].map(f=>f*mx),pts=k=>a.map((x,i)=>X(i).toFixed(1)+','+Y(x[k]).toFixed(1)).join(' ');
-  const bw=n===1?iw:iw/(n-1);
+  const W=Math.max(320,a.length*90),H=200,pl=48,pr=16,pt=14,pb=42,iw=W-pl-pr,ih=H-pt-pb,n=a.length,t=tolv/100;
+  const mx=Math.max(0.001,...a.map(x=>Math.max(x.E*(1+t),x.R)))*1.08,X=i=>pl+(n===1?iw/2:i*iw/(n-1)),Y=v=>pt+ih-v/mx*ih;
+  const tk=[0,.25,.5,.75,1].map(f=>f*mx),P=f=>a.map((x,i)=>X(i).toFixed(1)+','+Y(f(x)).toFixed(1)),bw=n===1?iw:iw/(n-1);
   let g=tk.map(v=>`<line x1="${pl}" x2="${W-pr}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--line)" stroke-width="1"/><text x="${pl-6}" y="${Y(v)+4}" text-anchor="end" font-size="11" fill="var(--mut)">${fmt(v)}</text>`).join('');
-  a.forEach((x,i)=>{if(x.k===sel)g+=`<rect x="${X(i)-bw/2}" y="${pt}" width="${bw}" height="${ih}" fill="var(--acc)" opacity=".08"/>`});
-  g+=`<polyline points="${pts('E')}" fill="none" stroke="#8aa0b3" stroke-width="2.5" stroke-linejoin="round"/>`+
-     `<polyline points="${pts('R')}" fill="none" stroke="var(--acc)" stroke-width="2.5" stroke-linejoin="round"/>`;
-  a.forEach((x,i)=>{const b=x.k===sel?' font-weight="700"':'';
+  a.forEach((x,i)=>{if(x.k===sel)g+=`<rect x="${X(i)-bw/2}" y="${pt}" width="${bw}" height="${ih}" fill="var(--ink)" opacity=".06"/>`});
+  // banda de tolerancia alrededor del esperado
+  if(n>1)g+=`<polygon points="${[...P(x=>x.E*(1+t)),...P(x=>x.E*(1-t)).reverse()].join(' ')}" fill="var(--ok)" opacity=".12"/>`;
+  else g+=`<rect x="${X(0)-14}" y="${Y(a[0].E*(1+t))}" width="28" height="${Y(a[0].E*(1-t))-Y(a[0].E*(1+t))}" fill="var(--ok)" opacity=".12"/>`;
+  g+=`<polyline points="${P(x=>x.E).join(' ')}" fill="none" stroke="var(--mut)" stroke-width="2" stroke-dasharray="6 4"/>`+
+     `<polyline points="${P(x=>x.R).join(' ')}" fill="none" stroke="var(--ink)" stroke-width="2.5" stroke-linejoin="round"/>`;
+  a.forEach((x,i)=>{const b=x.k===sel?' font-weight="700"':'',c=colSem(x);
     g+=`<g><title>${esc(x.k)}: esperado ${fmt(x.E)} m² · real ${fmt(x.R)} m² (${pct(x.R,x.E)})</title>`+
-      `<circle cx="${X(i)}" cy="${Y(x.E)}" r="4" fill="#8aa0b3"/><circle cx="${X(i)}" cy="${Y(x.R)}" r="4" fill="var(--acc)"/>`+
+      `<circle cx="${X(i)}" cy="${Y(x.E)}" r="3" fill="var(--card)" stroke="var(--mut)" stroke-width="1.5"/><circle cx="${X(i)}" cy="${Y(x.R)}" r="5" fill="${c}" stroke="var(--card)" stroke-width="1.5"/>`+
       `<rect x="${X(i)-bw/2}" y="${pt}" width="${bw}" height="${ih}" fill="transparent"/></g>`+
       `<text x="${X(i)}" y="${H-pb+16}" text-anchor="middle" font-size="11" fill="var(--ink)"${b}>${esc(String(x.k).replace(/^\d{4}-/,''))}</text>`+
-      `<text x="${X(i)}" y="${H-pb+31}" text-anchor="middle" font-size="11" fill="var(--mut)"${b}>${pct(x.R,x.E)}</text>`});
-  return`<div class="scroll"><svg viewBox="0 0 ${W} ${H}" width="100%" style="min-width:${Math.min(W,560)}px;max-height:260px;display:block" role="img" aria-label="Consumo esperado y real por semana">${g}</svg></div>`;
+      `<text x="${X(i)}" y="${H-pb+31}" text-anchor="middle" font-size="11" font-weight="600" fill="${c}">${pct(x.R,x.E)}</text>`});
+  const lg=`<p class="mut" style="display:flex;gap:6px 14px;flex-wrap:wrap;align-items:center">
+    <span><svg width="22" height="8"><line x1="0" x2="22" y1="4" y2="4" stroke="var(--mut)" stroke-width="2" stroke-dasharray="5 3"/></svg> Esperado</span>
+    <span><i class="sw" style="background:var(--ok);opacity:.35"></i> Tolerancia ±${tolv} %</span>
+    <span><svg width="22" height="8"><line x1="0" x2="22" y1="4" y2="4" stroke="var(--ink)" stroke-width="2.5"/></svg> Real:</span>
+    <span><i class="sw" style="background:var(--ok);border-radius:50%"></i> dentro de tolerancia</span>
+    <span><i class="sw" style="background:var(--bad);border-radius:50%"></i> de más</span>
+    <span><i class="sw" style="background:var(--warn);border-radius:50%"></i> de menos</span></p>`;
+  return lg+`<div class="scroll"><svg viewBox="0 0 ${W} ${H}" width="100%" style="min-width:${Math.min(W,560)}px;max-height:260px;display:block" role="img" aria-label="Consumo esperado y real por semana">${g}</svg></div>`;
 }
 const K=(t,v,c,sub)=>`<div class="kpi"><span class="mut">${t}</span><b class="${c||''}">${v}</b>${sub?`<span class="mut">${sub}</span>`:''}</div>`;
 const SEC=(n,t,body,id)=>`<section class="card sec"${id?` id="${id}"`:''}><h2><span class="sn">${n}</span> ${t}</h2>${body}</section>`;
@@ -823,7 +836,7 @@ function analysis(){
   const T=s.cruceTot,celda=c=>c.n?`${c.n} · <b>${sgm(c.R-c.E)}</b> <span class="mut">${pct(c.R,c.E)}</span>`:'<span class="mut">—</span>';
   const fila=w=>`<tr><td><b>${esc(w.k)}</b></td><td>${w.n}</td><td>${w.ok}</td><td>${celda(w.mismo)}</td><td>${celda(w.cambio)}</td><td>${celda(w.extra)}</td><td><b>${sgm(w.R-w.E)}</b> <span class="mut">${pct(w.R,w.E)}</span></td></tr>`;
   const sh=c=>T.A?fmt(T[c].A/T.A*100)+' %':'—';
-  const r4=`${lg1}${lsem(sT.semana.length?sT.semana:s.semana,resSem)}${resSem!=='*'?'<p class="mut">La banda marca la semana elegida; el resto de la sección es solo de esa semana.</p>':''}
+  const r4=`${lsem(sT.semana.length?sT.semana:s.semana,resSem)}${resSem!=='*'?'<p class="mut">La banda marca la semana elegida; el resto de la sección es solo de esa semana.</p>':''}
     <h3>Semana × coincidencia de cartón</h3>
     <div class="kpis">${K('Mismo cartón',T.mismo.n+' OP','',`${sh('mismo')} de la diferencia absoluta`)}${K('Cambio de cartón',T.cambio.n+' OP','',`${sh('cambio')} de la diferencia absoluta`)}${K('Caja Extra',T.extra.n+' OP','',`${sh('extra')} de la diferencia absoluta`)}</div>
     <div class="scroll"><table class="tc"><thead><tr><th>Semana</th><th>OP</th><th>Correctas</th><th><span class="chip st st-ok">Mismo cartón</span><br><span class="mut">OP · dif m² · %</span></th><th><span class="chip st st-camb">Cambio de cartón</span><br><span class="mut">OP · dif m² · %</span></th><th><span class="chip st st-extra">Caja Extra</span><br><span class="mut">OP · dif m² · %</span></th><th>Total<br><span class="mut">dif m² · %</span></th></tr></thead>
