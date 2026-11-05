@@ -593,7 +593,10 @@ function detail(r){
   let h=dh('Cartón')+bul('Programado',prog)+bul('Utilizado',usa)+dh('Por unidad');
   if(!C.length&&sp)h+=bul('Esperado','sin programar en el ERP')+bul('Real',m2(sp,cS||u));
   else{h+=bul('Esperado',fmt(r.E/u)+' m²')+bul('Real',m2(r.R,uR))+bul('Diferencia',uR>0?sgm(r.R/uR-r.E/u)+' m²':'—');
-    if(C.length>1)h+=C.map(p=>`<div class="line mut">&nbsp;&nbsp;${p.a}&nbsp;cm: ${fmt(p.E/u)} → ${pr(p.R,uR)} (${uR>0?sgm(p.R/uR-p.E/u):'—'})</div>`).join('');
+    // Con 2+ cartones: consumo POR CAJA de cada cartón (esperado ÷ sus cajas programadas; real ÷ sus cajas capturadas).
+    if(C.length>1)h+=dh('Por caja de cada cartón')+C.map(p=>{const eC=p.ce>0?p.E/p.ce:null,rC=p.cr>0?p.R/p.cr:null;
+      const d=eC!=null&&rC!=null?` (${sgm(rC-eC)})`:eC==null&&rC!=null?' <span class="c-otro">(no programado)</span>':'';
+      return`<div class="line mut">&nbsp;&nbsp;${p.a}&nbsp;cm: ${eC!=null?fmt(eC):'—'} → ${rC!=null?fmt(rC):'—'}${d}</div>`}).join('');
     if(sp)h+=`<div class="line c-sinprog">• Sin programar: <b>+${m2(sp,uR||u).replace(' m²','&nbsp;m²')}</b></div>`}
   const mt=motTxt(r);if(mt)h+=`<div class="line">• Motivo del cambio: <b>${esc(mt)}</b></div>`;
   return h+com;
