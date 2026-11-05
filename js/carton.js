@@ -586,21 +586,16 @@ function detail(r){
     return dh('Cartón')+bul('Utilizado',usa)+dh('Por caja')+bul('Real',cj?fmt(r.R/cj)+' m²':'—')+com}
   const u=r.cant||1,prog=P.filter(pg).map(p=>p.a+' cm'+(p.z?' (0 m²)':'')).join(' + ')||'Sin cartón en el ERP';
   const C=P.filter(p=>!p.sp&&(pg(p)||p.R>0)),sp=r.Rsp||0;
-  // Esperado ÷ unidades programadas (Cant); Real ÷ unidades realmente hechas (cajas capturadas convertidas a muebles
-  // con la misma proporción cajas/mueble del ERP). Si se hicieron las mismas cajas que las programadas, uR = u.
-  // Caja Extra: las cajas del cartón no programado son del MISMO mueble (falta en la lista de materiales), no muebles
-  // de más; los muebles hechos se cuentan solo con las cajas de los cartones programados.
-  const S=f=>P.filter(f).reduce((s,p)=>s+(p.cr||0),0),cS=S(p=>p.sp);
-  const cH=coin(r)==='extra'?S(p=>!p.sp&&pg(p)):S(p=>!p.sp&&(pg(p)||p.R>0));
-  const uR=r.ce?cH*u/r.ce:u,pr=(v,d)=>d>0?fmt(v/d):'—',m2=(v,d)=>d>0?fmt(v/d)+' m²':'—';
+  // Todo ÷ muebles programados (Cant del ERP), igual que el Análisis y la diferencia por mueble del Excel.
+  // El campo «Cajas» NO sirve para contar muebles: un mismo mueble puede capturarse en varios renglones.
+  const m2=(v,d)=>d>0?fmt(v/d)+' m²':'—';
   let h=dh('Cartón')+bul('Programado',prog)+bul('Utilizado',usa)+dh('Por unidad');
-  if(!C.length&&sp)h+=bul('Esperado','sin programar en el ERP')+bul('Real',m2(sp,cS||u));
-  else{h+=bul('Esperado',fmt(r.E/u)+' m²')+bul('Real',m2(r.R,uR))+bul('Diferencia',uR>0?sgm(r.R/uR-r.E/u)+' m²':'—');
-    // Con 2+ cartones: consumo POR CAJA de cada cartón (esperado ÷ sus cajas programadas; real ÷ sus cajas capturadas).
-    if(C.length>1)h+=dh('Por caja de cada cartón')+C.map(p=>{const eC=p.ce>0?p.E/p.ce:null,rC=p.cr>0?p.R/p.cr:null;
-      const d=eC!=null&&rC!=null?` (${sgm(rC-eC)})`:eC==null&&rC!=null?' <span class="c-otro">(no programado)</span>':'';
-      return`<div class="line mut">&nbsp;&nbsp;${p.a}&nbsp;cm: ${eC!=null?fmt(eC):'—'} → ${rC!=null?fmt(rC):'—'}${d}</div>`}).join('');
-    if(sp)h+=`<div class="line c-sinprog">• Sin programar: <b>+${m2(sp,uR||u).replace(' m²','&nbsp;m²')}</b></div>`}
+  if(!C.length&&sp)h+=bul('Esperado','sin programar en el ERP')+bul('Real',m2(sp,u));
+  else{h+=bul('Esperado',fmt(r.E/u)+' m²')+bul('Real',m2(r.R,u))+bul('Diferencia',sgm((r.R-r.E)/u)+' m²');
+    // Con 2+ cartones: lo de cada cartón por unidad (esperado y real ÷ Cant).
+    if(C.length>1)h+=dh('Por cartón')+C.map(p=>{const d=pg(p)?` (${sgm((p.R-p.E)/u)})`:' <span class="c-otro">(no programado)</span>';
+      return`<div class="line mut">&nbsp;&nbsp;${p.a}&nbsp;cm: ${pg(p)?fmt(p.E/u):'—'} → ${p.R>0?fmt(p.R/u):'—'}${d}</div>`}).join('');
+    if(sp)h+=`<div class="line c-sinprog">• Sin programar: <b>+${m2(sp,u).replace(' m²','&nbsp;m²')}</b></div>`}
   const mt=motTxt(r);if(mt)h+=`<div class="line">• Motivo del cambio: <b>${esc(mt)}</b></div>`;
   return h+com;
 }
@@ -987,9 +982,7 @@ function filasRegistro(L){const out=[];
     // emparejar cambios de cartón: primero con el motivo guardado (de → a), luego en orden
     (r.mcc||[]).forEach(m=>{const i=prog.findIndex(p=>+p.a===+m.de),j=usad.findIndex(p=>+p.a===+m.a);if(op&&i>=0&&j>=0)pares.push([prog.splice(i,1)[0],usad.splice(j,1)[0]])});
     while(op&&prog.length&&usad.length)pares.push([prog.shift(),usad.shift()]);
-    // Real ÷ muebles realmente hechos (cajas capturadas de ese cartón convertidas a muebles con la proporción del ERP);
-    // si se hicieron las cajas programadas, da lo mismo que ÷ Cant. Caja extra (sin programado): ÷ Cant como antes.
-    const divR=(b,c)=>op&&b&&b.ce&&c.cr>0?c.cr*div/b.ce:div;
+    const divR=()=>div;   // siempre ÷ Cant: las cajas capturadas no cuentan muebles (un mueble puede ir en varios renglones)
     const fila=(b,c)=>out.push({'Fecha registrado':Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())/864e5+25569,   // fecha de Excel (sin desfase de zona horaria)
       'OP':op?r.op:'','Modelo':r.modelo,
       'Tipo de cartón':b?b.a:'','Tipo de cartón realmente utilizado':c?c.a:'','Largo':c?largo(c.a):'','Muebles programados':op?(r.cant||''):'',
