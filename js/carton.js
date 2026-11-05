@@ -588,7 +588,10 @@ function detail(r){
   const C=P.filter(p=>!p.sp&&(pg(p)||p.R>0)),sp=r.Rsp||0;
   // Esperado ÷ unidades programadas (Cant); Real ÷ unidades realmente hechas (cajas capturadas convertidas a muebles
   // con la misma proporción cajas/mueble del ERP). Si se hicieron las mismas cajas que las programadas, uR = u.
-  const S=f=>P.filter(f).reduce((s,p)=>s+(p.cr||0),0),cH=S(p=>!p.sp&&(pg(p)||p.R>0)),cS=S(p=>p.sp);
+  // Caja Extra: las cajas del cartón no programado son del MISMO mueble (falta en la lista de materiales), no muebles
+  // de más; los muebles hechos se cuentan solo con las cajas de los cartones programados.
+  const S=f=>P.filter(f).reduce((s,p)=>s+(p.cr||0),0),cS=S(p=>p.sp);
+  const cH=coin(r)==='extra'?S(p=>!p.sp&&pg(p)):S(p=>!p.sp&&(pg(p)||p.R>0));
   const uR=r.ce?cH*u/r.ce:u,pr=(v,d)=>d>0?fmt(v/d):'—',m2=(v,d)=>d>0?fmt(v/d)+' m²':'—';
   let h=dh('Cartón')+bul('Programado',prog)+bul('Utilizado',usa)+dh('Por unidad');
   if(!C.length&&sp)h+=bul('Esperado','sin programar en el ERP')+bul('Real',m2(sp,cS||u));
