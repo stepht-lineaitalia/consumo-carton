@@ -18,13 +18,34 @@ const cmpCelH=x=>x.hReg?hsChip(x.h.k)+(x.hOk?' <span class="c-ok" title="Corregi
 const cmpDifC=x=>x.c?`<span class="${x.c.r.R-x.c.r.E>0?'pos':x.c.r.R-x.c.r.E<0?'neg':''}">${sgm(x.c.r.R-x.c.r.E)}</span>`:'—';
 const cmpDifH=x=>x.hReg&&x.h.difM!=null?`<span class="${x.h.difM>hsTol?'pos':x.h.difM<-hsTol?'neg':''}">${sgn(x.h.difM)}</span>`:'—';
 
+// Desglose por cartón (m² totales de la OP): cartón programado | cartón real | m² programados | m² reales.
+// Si hubo cambio, el cartón real va del color de su motivo (leyenda arriba, solo con los motivos que aparecen).
+// Empareja igual que el Excel de registro: primero con el motivo guardado (de → a), luego en orden. Solo presenta.
+const CMP_MOT={exist:'mot-exist',inc:'mot-inc',sin:'mot-sin'};
+function cmpDesglose(r){
+  const P=(r.per||[]).filter(p=>!p.sp&&(pg(p)||p.R>0)),sp=(r.per||[]).filter(p=>p.sp&&p.R>0);
+  const prog=P.filter(p=>pg(p)&&!(p.R>0)),usad=P.filter(p=>p.R>0&&!pg(p)),F=[];
+  P.filter(p=>pg(p)&&p.R>0).forEach(p=>F.push({p:p.a,u:p.a,E:p.E,R:p.R}));
+  (r.mcc||[]).forEach(m=>{const i=prog.findIndex(p=>+p.a===+m.de),j=usad.findIndex(p=>+p.a===+m.a);
+    if(i>=0&&j>=0){const b=prog.splice(i,1)[0],c=usad.splice(j,1)[0];F.push({p:b.a,u:c.a,E:b.E,R:c.R,m:CMP_MOT[m.m]?m.m:'sin'})}});
+  while(prog.length&&usad.length){const b=prog.shift(),c=usad.shift();F.push({p:b.a,u:c.a,E:b.E,R:c.R,m:'sin'})}
+  prog.forEach(p=>F.push({p:p.a,E:p.E,R:0}));
+  usad.forEach(p=>F.push({u:p.a,R:p.R,x:'no programado'}));
+  sp.forEach(p=>F.push({u:p.a,R:p.R,x:'sin programar en ERP'}));
+  if(!F.length)return'';
+  const m=v=>v>0?fmt(v):'—',cm=a=>a!=null?a+' cm':'—';
+  const usados=[...new Set(F.filter(f=>f.m).map(f=>f.m))].sort((a,b)=>['exist','inc','sin'].indexOf(a)-['exist','inc','sin'].indexOf(b));
+  const xs=[...new Set(F.filter(f=>f.x).map(f=>f.x))],ley=usados.length||xs.length?`<div class="cmpley">${usados.map(k=>`<span><i class="${CMP_MOT[k]}"></i>${k==='sin'?'Sin motivo registrado':esc(MOTIVOS[k])}</span>`).join('')}${xs.length?`<span>* ${xs.join(' · ')}</span>`:''}</div>`:'';
+  return`<table class="cmpd"><thead><tr><th>Cartón programado</th><th>Cartón real</th><th>m² programa</th><th>m² reales</th></tr></thead><tbody>${F.map(f=>
+    `<tr><td>${cm(f.p)}</td><td${f.m?` class="${CMP_MOT[f.m]}"`:''}${f.x?` title="${f.x}"`:''}>${cm(f.u)}${f.x?'<sup>*</sup>':''}</td><td>${m(f.E)}</td><td>${m(f.R)}</td></tr>`).join('')}</tbody></table>${ley}`}
+
 // Tarjetas de una OP: cartón | hojas single.
 function cmpTarjetas(x){
   const kp=(t,v,c)=>`<div class="kpi"><span class="mut">${t}</span><b class="${c||''}">${v}</b></div>`;
   let cc='<p class="mut">Esta OP no tiene registro de cartón.</p>';
   if(x.c){const r=x.c.r,d=r.R-r.E;
     cc=`${chipE(x.c.e)}<div class="kpis cmpk">${kp('m² esperados',fmt(r.E))}${kp('m² reales',fmt(r.R))}${kp('Diferencia',`${sgm(d)} <span class="mut" style="font-size:13px">(${pct(r.R,r.E)})</span>`,d>0?'pos':d<0?'neg':'')}</div>
-    <div class="line">• Cartón: ${esc(cartP(r))}${cartU(r)!==cartP(r)?` → usado ${esc(cartU(r))}`:' (programado y usado)'}</div><div class="line">• Cajas: ${r.ce||0} → ${r.cr||0}</div>
+    ${cmpDesglose(r)}<div class="line">• Cajas: ${r.ce||0} → ${r.cr||0}</div>
     ${x.c.n>1?`<div class="line pos">• La OP tiene ${x.c.n} registros de cartón (se muestra el último).</div>`:''}<div class="line mut">• Registrado ${dmy(r.ts)}</div>
     <a href="#" class="cmplk" data-cmpc="${esc(x.op)}">Ver en Cartón → Tablero</a>`}
   let hh='<p class="mut">Esta OP no viene en el programa de hojas single.</p>';

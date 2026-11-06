@@ -118,6 +118,10 @@ body.sidecol #side{display:none!important}
 /* Comparativo de consumos: dos tarjetas lado a lado (una columna en celular) */
 .cmp2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}.cmp2>.card{margin:0}
 .cmpk{grid-template-columns:repeat(3,minmax(0,1fr));margin:10px 0}.cmpk .kpi b{font-size:17px}
+.cmpd{margin:10px 0 0;font-size:13px;table-layout:fixed}.cmpd th,.cmpd td{width:25%;text-align:center}.cmpd th{font-size:11px;font-weight:600;color:var(--mut);text-transform:uppercase;letter-spacing:.03em}.cmpd td,.cmpd th{padding:5px 6px;border-bottom:1px solid var(--line);vertical-align:top}.cmpd td.n,.cmpd th.n{text-align:right;white-space:nowrap}
+.cmpley{display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:var(--mut);margin:6px 0 8px}.cmpley i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:-1px;background:currentColor}
+.cmpley .mot-exist,.cmpd td.mot-exist{color:#1d5fd1}.cmpley .mot-inc,.cmpd td.mot-inc{color:#c2560c}.cmpley .mot-sin,.cmpd td.mot-sin{color:#7a8794}.cmpd td[class^="mot-"]{font-weight:600}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]) .cmpley .mot-exist,:root:not([data-theme="light"]) .cmpd td.mot-exist{color:#7aa8ff}:root:not([data-theme="light"]) .cmpley .mot-inc,:root:not([data-theme="light"]) .cmpd td.mot-inc{color:#f0a060}}.cmpu{font-size:11px;margin:0 0 6px}
 .cmplk{display:inline-block;margin-top:6px;font-size:13px;color:var(--acc)}
 @media(max-width:700px){.cmp2{grid-template-columns:1fr}}
 /* Alertas que se pueden descartar (×) */
