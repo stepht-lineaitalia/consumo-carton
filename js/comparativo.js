@@ -4,22 +4,41 @@
 
 // Una fila por OP con lo de cada material. Cartón: último registro de la OP (si hay varios, se indica).
 function cmpDatos(){
-  const C={};vis().filter(r=>r.kind==='op').sort((a,b)=>a.ts-b.ts).forEach(r=>{const o=C[r.op]||(C[r.op]={n:0});o.n++;o.r=r});
+  const C={};vis().filter(r=>r.kind==='op').sort((a,b)=>a.ts-b.ts).forEach(r=>{const o=C[r.op]||(C[r.op]={n:0,rs:[]});o.n++;o.r=r;o.rs.push(r)});
   const H={};hsDatos().forEach(x=>H[x.op]=x);
   return[...new Set([...Object.keys(C),...Object.keys(H)])].map(op=>{const c=C[op],h=H[op],r=c&&c.r;
     const e=r?est(r):null,cDif=!!e&&e.cls==='bad'&&!esExcep(r),hReg=!!(h&&h.r),hDif=!!h&&(h.k==='mas'||h.k==='menos');
     // «Corregida»: cada material que necesitaba corrección ya tiene la marca (Cartón: Corregido · Hojas: Corregido).
     const cNec=!!r&&porCorregir(r),cOk=cNec&&!!r.corr,hNec=!!h&&hsPorCorregir(h),hOk=hNec&&!!h.r.rev,corregida=(cNec||hNec)&&(!cNec||cOk)&&(!hNec||hOk);
-    return{cOk,hOk,corregida,op,modelo:(r&&r.modelo)||(h&&h.modelo)||'',fecha:(h&&h.fecha)||(r&&r.venc)||'',area:h&&h.area||'',c:r?{r,e,n:c.n}:null,h:h||null,hReg,cDif,hDif,
+    return{cOk,hOk,corregida,op,modelo:(r&&r.modelo)||(h&&h.modelo)||'',fecha:(h&&h.fecha)||(r&&r.venc)||'',area:h&&h.area||'',c:r?{r,e,n:c.n,u:cmpUnir(c.rs)}:null,h:h||null,hReg,cDif,hDif,
       ult:Math.max(r?r.ts:0,hReg?h.r.ts:0)}});
 }
 const cmpCelC=x=>x.c?chipE(x.c.e,(EST[x.c.e.k]||{}).s||x.c.e.t)+(x.cOk?' <span class="c-ok" title="Corregido">✓</span>':''):'<span class="chip st st-pend">Sin registro</span>';
 const cmpCelH=x=>x.hReg?hsChip(x.h.k)+(x.hOk?' <span class="c-ok" title="Corregido">✓</span>':''):x.h?'<span class="chip st st-pend">Pendiente</span>':'<span class="chip st st-pend">Sin registro</span>';
 // Consumo «sin programar en ERP» (Rsp) va aparte, igual que en el Tablero: «+X sin programar» en morado.
 const cmpSp=r=>r.Rsp?`<span class="c-sinprog">+${fmt(r.Rsp)} sin programar</span>`:'';
-const cmpDifC=x=>{if(!x.c)return'—';const r=x.c.r,d=r.R-r.E;if(r.Rsp&&!(r.E>0)&&!(r.R>0))return cmpSp(r);
+const cmpDifC=x=>{if(!x.c)return'—';const r=x.c.u,d=r.R-r.E;if(r.Rsp&&!(r.E>0)&&!(r.R>0))return cmpSp(r);
   return`<span class="${d>0?'pos':d<0?'neg':''}">${sgm(d)}</span>`+(r.Rsp?'<br>'+cmpSp(r):'')};
 const cmpDifH=x=>x.hReg&&x.h.difM!=null?`<span class="${x.h.difM>hsTol?'pos':x.h.difM<-hsTol?'neg':''}">${sgn(x.h.difM)}</span>`:'—';
+
+// OP con varios registros de cartón (p. ej. OP doble consumo): se SUMAN los m² reales de todos los registros, por ancho.
+// Los m² programados no se suman (es la misma programación del ERP): se toma el programado de cada ancho una sola vez.
+// El estado (chip) y la corrección siguen siendo los del último registro.
+function cmpUnir(rs){
+  const last=rs[rs.length-1];if(rs.length<2)return last;
+  const A={};rs.forEach(r=>(r.per||[]).forEach(p=>{const o=A[p.a]||(A[p.a]={a:p.a,E:0,R:0,Rsp:0,prog:false});
+    if(pg(p)){o.prog=true;o.E=Math.max(o.E,p.E||0)}if(p.sp)o.Rsp+=p.R||0;else o.R+=p.R||0}));
+  const W=Object.values(A).sort((a,b)=>a.a-b.a),S=k=>W.reduce((t,o)=>t+o[k],0);
+  return{...last,multi:rs.length,W,E:S('E'),R:S('R'),Rsp:S('Rsp'),cr:rs.reduce((t,r)=>t+(r.cr||0),0),
+    mcc:rs.flatMap(r=>r.mcc||[]),fechas:[...new Set(rs.map(r=>dmy(r.ts)))]};
+}
+function cmpDesgloseW(u){
+  const F=[];u.W.forEach(o=>{
+    if(o.prog||o.R>0){const f={p:o.prog?o.a:null,u:o.R>0?o.a:null,E:o.prog?o.E:null,R:o.R>0?o.R:null};
+      if(!o.prog&&o.R>0){const m=u.mcc.find(m=>+m.a===+o.a);if(m)f.m=CMP_MOT[m.m]?m.m:'sin';else f.x='no programado'}
+      F.push(f)}
+    if(o.Rsp>0)F.push({p:o.prog?o.a:null,u:o.a,E:o.prog?0:null,R:o.Rsp,m:'sp'})});
+  return cmpTablaD(F,{E:u.E,R:u.R+(u.Rsp||0),n:u.multi})}
 
 // Desglose por cartón (m² totales de la OP): cartón programado | cartón real | m² programados | m² reales.
 // Si hubo cambio, el cartón real va del color de su motivo (leyenda arriba, solo con los motivos que aparecen).
@@ -36,23 +55,26 @@ function cmpDesglose(r){
   usad.forEach(p=>F.push({u:p.a,R:p.R,x:'no programado'}));
   // Sin programar en ERP: en morado. Si el cartón venía en el ERP con 0 m², se muestra como programado.
   sp.forEach(p=>F.push({p:pg(p)?p.a:null,u:p.a,E:pg(p)?0:null,R:p.R,m:'sp'}));
+  return cmpTablaD(F)}
+// Tabla del desglose (con renglón de total cuando la OP suma varios registros).
+function cmpTablaD(F,T){
   if(!F.length)return'';
   const m=v=>v>0?fmt(v):v===0?fmt(0):'—',cm=a=>a!=null?a+' cm':'—';
   const usados=[...new Set(F.filter(f=>f.m).map(f=>f.m))].sort((a,b)=>['exist','inc','sin','sp'].indexOf(a)-['exist','inc','sin','sp'].indexOf(b));
   const xs=[...new Set(F.filter(f=>f.x).map(f=>f.x))],ley=usados.length||xs.length?`<div class="cmpley">${usados.map(k=>`<span><i class="${CMP_MOT[k]}"></i>${k==='sin'?'Sin motivo registrado':k==='sp'?'Sin programar en ERP':esc(MOTIVOS[k])}</span>`).join('')}${xs.length?`<span>* ${xs.join(' · ')}</span>`:''}</div>`:'';
   return`<table class="cmpd"><thead><tr><th>Cartón programado</th><th>Cartón real</th><th>m² programa</th><th>m² reales</th></tr></thead><tbody>${F.map(f=>
-    `<tr><td>${cm(f.p)}</td><td${f.m?` class="${CMP_MOT[f.m]}"`:''}${f.x?` title="${f.x}"`:''}>${cm(f.u)}${f.x?'<sup>*</sup>':''}</td><td>${m(f.E)}</td><td>${m(f.R)}</td></tr>`).join('')}</tbody></table>${ley}`}
+    `<tr><td>${cm(f.p)}</td><td${f.m?` class="${CMP_MOT[f.m]}"`:''}${f.x?` title="${f.x}"`:''}>${cm(f.u)}${f.x?'<sup>*</sup>':''}</td><td>${m(f.E)}</td><td>${m(f.R)}</td></tr>`).join('')}</tbody>${T?`<tfoot><tr><th colspan="2">Total (${T.n} registros)</th><th>${fmt(T.E)}</th><th>${fmt(T.R)}</th></tr></tfoot>`:''}</table>${ley}`}
 
 // Tarjetas de una OP: cartón | hojas single.
 function cmpTarjetas(x){
   const kp=(t,v,c)=>`<div class="kpi"><span class="mut">${t}</span><b class="${c||''}">${v}</b></div>`;
   let cc='<p class="mut">Esta OP no tiene registro de cartón.</p>';
-  if(x.c){const r=x.c.r,d=r.R-r.E,todoSp=!!r.Rsp&&!(r.E>0)&&!(r.R>0);
+  if(x.c){const r=x.c.u,d=r.R-r.E,todoSp=!!r.Rsp&&!(r.E>0)&&!(r.R>0);
     cc=`${chipE(x.c.e)}<div class="kpis cmpk">${todoSp?kp('m² esperados','Sin programar','c-sinprog')+kp('m² reales',fmt(r.Rsp))+kp('Diferencia','—')
       :kp('m² esperados',fmt(r.E))+kp('m² reales',fmt(r.R))+kp('Diferencia',`${sgm(d)} <span class="mut" style="font-size:13px">(${pct(r.R,r.E)})</span>`,d>0?'pos':d<0?'neg':'')}</div>
     ${r.Rsp&&!todoSp?`<div class="line">• ${cmpSp(r).replace('sin programar','m² sin programar')}</div>`:''}
-    ${cmpDesglose(r)}<div class="line">• Cajas: ${r.ce||0} → ${r.cr||0}</div>
-    ${x.c.n>1?`<div class="line pos">• La OP tiene ${x.c.n} registros de cartón (se muestra el último).</div>`:''}<div class="line mut">• Registrado ${dmy(r.ts)}</div>
+    ${r.multi?cmpDesgloseW(r):cmpDesglose(r)}<div class="line">• Cajas: ${r.ce||0} → ${r.cr||0}</div>
+    ${x.c.n>1?`<div class="line pos">• La OP tiene ${x.c.n} registros de cartón (los m² son la suma de todos; el estado es el del último).</div>`:''}<div class="line mut">• Registrado ${r.fechas?r.fechas.length>1?r.fechas.slice(0,-1).join(', ')+' y '+r.fechas[r.fechas.length-1]:r.fechas[0]+` (${x.c.n} veces)`:dmy(r.ts)}</div>
     <a href="#" class="cmplk" data-cmpc="${esc(x.op)}">Ver en Cartón → Tablero</a>`}
   let hh='<p class="mut">Esta OP no viene en el programa de hojas single.</p>';
   if(x.h){const h=x.h;

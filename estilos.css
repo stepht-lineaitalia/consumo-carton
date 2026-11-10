@@ -132,3 +132,4 @@ li.alli{display:flex;justify-content:space-between;gap:8px;align-items:flex-star
 .rx-ok::before,.rx-at::before,.rx-in::before{content:"•";color:var(--mut)}
 .ressel{width:auto;margin-left:auto;font-size:13px;font-weight:400;padding:4px 8px}
 .cmpd td.c-sinprog{font-weight:600}
+.cmpd tfoot th{color:inherit;font-size:13px;font-weight:700;text-transform:none;letter-spacing:0;border-bottom:0;border-top:2px solid var(--line)}
