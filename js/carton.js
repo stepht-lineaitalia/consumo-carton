@@ -338,26 +338,38 @@ function leerConsumos(rows){
   return{m,info};
 }
 let lastRows=null;
+// Compara dos OP sin importar el orden de las llaves (la base reordena el JSON).
+const firmaOp=o=>JSON.stringify(o,(k,v)=>v&&typeof v==='object'&&!Array.isArray(v)?Object.keys(v).sort().reduce((a,x)=>(a[x]=v[x],a),{}):v);
+let lastName='';
 async function cargarConsumos(rows){
   const {m,info}=leerConsumos(rows),ops=Object.values(m),nv=Object.values(info.nuevos);
   if(!ops.length&&!nv.length)throw new Error('No encontré OP en el archivo.');
+  // Antes de guardar: cuáles OP son nuevas, cuáles cambian y cuáles quedan igual que en el catálogo
+  let prev={};try{prev=await DB.getCatalog()||{}}catch(x){prev=cat||{}}
+  let nuevas=0,act=0,igual=0;
+  ops.forEach(o=>{const p=prev[o.op];if(!p||p.demo)nuevas++;else if(firmaOp(p)===firmaOp(o))igual++;else act++});
   if(ops.length){cat=await DB.upsertOps(m,{overwrite:true});showCat()}
-  const ct=Object.values(info.contra),L10=a=>esc(a.slice(0,10).join(', '))+(a.length>10?'…':'');
+  const ct=Object.values(info.contra);
   const sc=ops.filter(o=>!o.rows.length),cc=ops.length-sc.length;
-  let h=`<b>Listo:</b> ${ops.length} OP leídas: ${cc} con cartón (${info.lineas} líneas) y ${sc.length} sin cartón programado. ${Object.keys(cat).length} en catálogo.`;
-  if(info.excl.size)h+=`<br>Excluidas por tipo (${esc(cfg.excluir.join(', '))}): ${info.excl.size} OP.`;
-  if(info.sum.size)h+=`<br>Renglones del mismo cartón <b>sumados</b> (varias piezas o cajas del mismo ancho): ${info.sum.size} OP — ${L10([...info.sum])}.`;
-  if(info.una.size)h+=`<br>Renglones repetidos por el reporte, <b>contados una vez</b> (mismos m², solo cambia Item/Cantidad): ${info.una.size} OP — ${L10([...info.una])}.`;
-  // Programación del ERP: cartones en 0 m² (casi seguro error) y OP sin cartón (muchas usan caja comprada: solo se cuentan)
+  const T=(n,t,c)=>`<div class="up-t ${c||''}"><b>${n}</b><span>${t}</span></div>`;
+  const hora=new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
+  let h=`<div class="up"><div class="up-h"><b>✓ Archivo cargado</b><span>${esc(lastName||'Consumo Extras')} · ${hora}</span></div>`+
+    `<div class="up-g">${T(ops.length,'OP leídas')}${T(cc,'con cartón')}${T(sc.length,'sin cartón programado (caja comprada)')}`+
+    (info.excl.size?T(info.excl.size,`excluidas por tipo (${esc(cfg.excluir.join(', '))})`,'ig'):'')+`</div>`+
+    `<div class="up-sub">Cambios en el catálogo</div>`+
+    `<div class="up-g">${T(nuevas,'nuevas','nu')}${T(act,'actualizadas','ac')}${T(igual,'sin cambios','ig')}</div>`;
+  // Avisos: solo aparecen cuando hay algo que revisar
+  let x='';
   if(info.cero.size){const z=[...info.cero].map(k=>{const [op,a]=k.split('|');return`${esc(op)} · ${esc(m[op].modelo)} · ${a} cm`});
-    h+=`<div class="banner sp" style="margin-top:8px">⚠ ${z.length} cartón(es) programados con <b>0 m²</b> en el ERP (revisar en Dynamics). Las OP se pueden capturar; si consumen ese cartón se marcan «Sin programar»:<br>${z.slice(0,15).join('<br>')}${z.length>15?'<br>…':''}</div>`}
-  if(sc.length)h+=`<br>${sc.length} OP sin ningún cartón en el ERP (muchas usan caja comprada). Se pueden capturar; solo se marcan «Sin programar» si consumen cartón.`;
-  try{const ok=ops.length?await verificarCorrecciones(m):[];if(ok.length)h+=`<br><b style="color:var(--s-ok)">✓ Corregido en origen</b> (ya viene programado en el ERP): ${esc(ok.join(', '))}.`}catch(x){}
-  if(info.otros.size)h+=`<br>⚠ Tipo de OP no reconocido, entra como «Otro» para revisión: <b>${esc([...info.otros].join(', '))}</b>. Si es un tipo válido, agrégalo en «Tipos de OP».`;
-  if(ct.length)h+=`<br>⚠ La descripción no coincide con el ancho del catálogo (manda el catálogo): `+ct.map(c=>`${esc(c.cod)} «${esc(c.nombre)}» = ${c.ancho} cm`).join('; ')+'.';
-  if(nv.length)h+=`<div class="banner pend" style="margin-top:8px">⚠ ${nv.reduce((s,x)=>s+x.n,0)} línea(s) parecen cartón para caja pero su código no está en el catálogo y <b>no se cargaron</b>:<br>`+
-    nv.map(x=>`${esc(x.cod)} «${esc(x.nombre)}» → ancho sugerido <b>${x.ancho||'?'} cm</b> (${x.n} línea(s))`).join('<br>')+
-    (nv.every(x=>x.ancho>0)?`<br><button class="btn sm" id="regnv" type="button" style="margin-top:6px">Registrar con el ancho sugerido y volver a leer</button>`:'<br>Regístralos en «Catálogo de cartones» y vuelve a subir el archivo.')+'</div>';
+    x+=`<div class="banner sp" style="margin-top:8px">⚠ ${z.length} cartón(es) programados con <b>0 m²</b> en el ERP (revisar en Dynamics). Las OP se pueden capturar; si consumen ese cartón se marcan «Sin programar»:<br>${z.slice(0,15).join('<br>')}${z.length>15?'<br>…':''}</div>`}
+  try{const ok=ops.length?await verificarCorrecciones(m):[];if(ok.length)x+=`<div><b style="color:var(--s-ok)">✓ Corregido en origen</b> (ya viene programado en el ERP): ${esc(ok.join(', '))}.</div>`}catch(e){}
+  if(info.otros.size)x+=`<div>⚠ Tipo de OP no reconocido, entra como «Otro» para revisión: <b>${esc([...info.otros].join(', '))}</b>. Si es un tipo válido, agrégalo en «Tipos de OP».</div>`;
+  if(ct.length)x+=`<div>⚠ La descripción no coincide con el ancho del catálogo (manda el catálogo): `+ct.map(c=>`${esc(c.cod)} «${esc(c.nombre)}» = ${c.ancho} cm`).join('; ')+'.</div>';
+  if(nv.length)x+=`<div class="banner pend" style="margin-top:8px">⚠ ${nv.reduce((s,q)=>s+q.n,0)} línea(s) parecen cartón para caja pero su código no está en el catálogo y <b>no se cargaron</b>:<br>`+
+    nv.map(q=>`${esc(q.cod)} «${esc(q.nombre)}» → ancho sugerido <b>${q.ancho||'?'} cm</b> (${q.n} línea(s))`).join('<br>')+
+    (nv.every(q=>q.ancho>0)?`<br><button class="btn sm" id="regnv" type="button" style="margin-top:6px">Registrar con el ancho sugerido y volver a leer</button>`:'<br>Regístralos en «Catálogo de cartones» y vuelve a subir el archivo.')+'</div>';
+  if(x)h+=`<div class="up-x">${x}</div>`;
+  h+='</div>';
   $('#filemsg').innerHTML=h;
   const b=$('#regnv');if(b)b.onclick=async()=>{
     const c={...cfg.cartones};nv.forEach(x=>c[x.cod]=x.ancho);
@@ -368,7 +380,7 @@ $('#file').onchange=async e=>{
   const f=e.target.files[0];if(!f)return;
   try{
     const wb=XLSX.read(await f.arrayBuffer(),{cellDates:true});
-    lastRows=XLSX.utils.sheet_to_json(wb.Sheets['Data']||wb.Sheets[wb.SheetNames[0]],{defval:''});
+    lastName=f.name;lastRows=XLSX.utils.sheet_to_json(wb.Sheets['Data']||wb.Sheets[wb.SheetNames[0]],{defval:''});
     await cargarConsumos(lastRows);
   }catch(err){$('#filemsg').textContent='Error: '+err.message}
   e.target.value='';

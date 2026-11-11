@@ -44,7 +44,7 @@
 <details class="card adm w" open>
 <summary><b>Configuración (admin)</b> <span class="mut" id="catinfo"></span></summary>
 <p class="mut">Sube el Excel «Consumo Extras» (hoja <b>Data</b>). Solo entran las líneas con código de cartón del catálogo; CompEsperados = m² esperados de cada cartón y Cant = cajas esperadas. Las OP nuevas se agregan y las existentes se actualizan.</p>
-<input type="file" id="file" accept=".xlsx,.xls,.csv"><p class="mut" id="filemsg"></p><p class="mut" id="bkinfo" style="margin:4px 0"></p>
+<input type="file" id="file" accept=".xlsx,.xls,.csv"><div class="mut" id="filemsg"></div><p class="mut" id="bkinfo" style="margin:4px 0"></p>
 <div class="row"><label>Tolerancia (±% del esperado)<input id="tol" type="number" min="0"></label><button class="btn ghost sm loc" id="cpw">Cambiar contraseña</button><button class="btn ghost sm" id="bk">Respaldo (JSON)</button><label class="btn ghost sm" style="flex:0 0 auto;margin:0">Importar respaldo<input type="file" id="bki" accept=".json" class="hide"></label></div>
 <details class="box"><summary><b>Catálogo de cartones</b> <span class="mut">(código del componente en el ERP → ancho)</span></summary>
 <div id="cartcfg" style="margin-top:6px"></div>
