@@ -11,6 +11,8 @@ const DEF_CFG={
   // OP que no consumen cartón para este análisis: se descartan al cargar.
   excluir:['OPP','OPM'],
   // Excepciones de agrupación de modelos (código exacto → modelo principal). Inicial: la hoja «Excepciones» del maestro.
+  // Modelos con varias piezas por caja (v5.15): la L.M. programa 1 caja por pieza, pero en piso juntan varias piezas en una caja.
+  vpc:[],
   modelosExc:{'C2-2210L':'C2-2210','C2-2203BH':'C2-2203','LINBKD3S-FWN':'LINBKD3S','YPCUBSETT-LD150':'Y-CUBSETTL150','YPCUBSETT-LI150':'Y-CUBSETTL150'}
 };
 let cfg={...JSON.parse(JSON.stringify(DEF_CFG)),seguimiento:{}};
@@ -65,7 +67,7 @@ const SAMPLE=[
      saveReport(rep)          → inserta o reemplaza por id (asigna id si falta) y VERIFICA que quedó guardado
      deleteReport(id)         importReports(arr) → {added,total}
      getCatalog()             upsertOps(ops,{overwrite}) → catálogo resultante (quita las OP de demostración)
-     getSettings()            saveSettings({tol,cartones,prefijos,excluir,modelosExc,seguimiento})  (lo que falte toma el valor inicial DEF_CFG)
+     getSettings()            saveSettings({tol,cartones,prefijos,excluir,modelosExc,vpc,seguimiento})  (lo que falte toma el valor inicial DEF_CFG)
      listOperadores()         saveOperadores(lista)   (nombres para elegir en planta)
      getAuth() setAuth(a)     contraseña de admin del modo local (en la nube: sesion(), entrar(), salir())
      onChange(cb)             avisa cuando otro usuario/pestaña cambió los reportes
@@ -103,6 +105,7 @@ function mezclarCfg(t,c){c=c||{};const d=JSON.parse(JSON.stringify(DEF_CFG));
     prefijos:okMap(c.prefijos,v=>typeof v==='string'&&v.trim())?c.prefijos:d.prefijos,
     excluir:Array.isArray(c.excluir)?c.excluir.map(String):d.excluir,
     modelosExc:c.modelosExc&&typeof c.modelosExc==='object'&&!Array.isArray(c.modelosExc)?c.modelosExc:d.modelosExc,
+    vpc:Array.isArray(c.vpc)?c.vpc.map(x=>String(x).trim().toUpperCase()).filter(Boolean):d.vpc,
     seguimiento:c.seguimiento&&typeof c.seguimiento==='object'&&!Array.isArray(c.seguimiento)?c.seguimiento:{},
     respaldo:c.respaldo&&fin(c.respaldo.ts)?c.respaldo:null}}
 const LocalDB=(()=>{
@@ -146,7 +149,7 @@ const LocalDB=(()=>{
     },
     async getSettings(){return mezclarCfg(get(K.tol,DEF_CFG.tol),get(K.cfg,{})||{})},
     async saveSettings(s){if(!s)return;if('tol' in s)put(K.tol,s.tol);
-      const c=get(K.cfg,{})||{};let ch=false;['cartones','prefijos','excluir','modelosExc','seguimiento','respaldo'].forEach(k=>{if(k in s){c[k]=s[k];ch=true}});if(ch)put(K.cfg,c)},
+      const c=get(K.cfg,{})||{};let ch=false;['cartones','prefijos','excluir','modelosExc','vpc','seguimiento','respaldo'].forEach(k=>{if(k in s){c[k]=s[k];ch=true}});if(ch)put(K.cfg,c)},
     async listOperadores(){const l=get(K.opr,[]);return Array.isArray(l)?l.map(String):[]},
     async saveOperadores(l){put(K.opr,l)},
     async getAuth(){return get(K.auth,null)},
@@ -193,7 +196,7 @@ const CloudDB=sb=>{
       for(let i=0;i<rows.length;i+=500)await run(sb.from('ops').upsert(rows.slice(i,i+500),{onConflict:'op',ignoreDuplicates:!(o&&o.overwrite)}));
       return api.getCatalog()},
     async getSettings(){const rows=await run(sb.from('config').select('k,v'));const c={};(rows||[]).forEach(w=>c[w.k]=w.v);return mezclarCfg(c.tol,c)},
-    async saveSettings(s){if(!s)return;const rows=['tol','cartones','prefijos','excluir','modelosExc','seguimiento','respaldo'].filter(k=>k in s).map(k=>({k,v:s[k],updated_at:new Date().toISOString()}));
+    async saveSettings(s){if(!s)return;const rows=['tol','cartones','prefijos','excluir','modelosExc','vpc','seguimiento','respaldo'].filter(k=>k in s).map(k=>({k,v:s[k],updated_at:new Date().toISOString()}));
       if(rows.length)await run(sb.from('config').upsert(rows,{onConflict:'k'}))},
     async listOperadores(){return(await run(sb.from('operadores').select('nombre,activo').order('nombre'))||[]).filter(x=>x.activo).map(x=>x.nombre)},
     async saveOperadores(lista){const ya=await run(sb.from('operadores').select('nombre,activo'))||[],L=new Set(lista);
@@ -283,6 +286,7 @@ function showCfg(){
   $('#cartcfg').innerHTML='<table><thead><tr><th>Código</th><th>Ancho</th><th></th></tr></thead><tbody>'+c.map(([k,v])=>`<tr><td>${esc(k)}</td><td>${v} cm</td><td><button class="btn ghost sm" type="button" data-rmcart="${esc(k)}">Quitar</button></td></tr>`).join('')+'</tbody></table>';
   $('#tipcfg').value=Object.entries(cfg.prefijos).map(([k,v])=>k+' = '+v).join('\n');
   $('#exccfg').value=cfg.excluir.join(', ');
+  $('#vpccfg').value=(cfg.vpc||[]).join(', ');
 }
 const cfgMsg=(m,bad)=>{$('#cfgmsg').textContent=m;$('#cfgmsg').style.color=bad?'var(--bad)':''};
 async function guardarCartones(c){try{await DB.saveSettings({cartones:c});cfg.cartones=c;showCfg();cfgMsg('Catálogo de cartones guardado. Vuelve a subir el Excel para aplicarlo a las OP.')}catch(x){dbErr(x,'No se pudo guardar el catálogo')}}
@@ -298,6 +302,8 @@ $('#savetip').onclick=async()=>{
   if(bad.length||!Object.keys(P).length){cfgMsg('Revisa el formato «PREFIJO = Nombre» en: '+(bad.join(' | ')||'(vacío)'),true);return}
   const X=[...new Set($('#exccfg').value.split(',').map(x=>x.trim().toUpperCase()).filter(Boolean))];
   try{await DB.saveSettings({prefijos:P,excluir:X});cfg.prefijos=P;cfg.excluir=X;showCfg();showCat();cfgMsg('Tipos de OP y exclusiones guardados.')}catch(x){dbErr(x,'No se pudo guardar la configuración')}};
+$('#savevpc').onclick=async()=>{const V=[...new Set($('#vpccfg').value.split(',').map(x=>x.trim().toUpperCase()).filter(Boolean))];
+  try{await DB.saveSettings({vpc:V});cfg.vpc=V;showCfg();cfgMsg(V.length?'Modelos con varias piezas por caja guardados.':'Lista de varias piezas por caja vacía: todos los modelos se analizan normal.');refresh()}catch(x){dbErr(x,'No se pudo guardar la lista')}};
 $('#tol').oninput=e=>{tolv=Math.max(0,num(e.target.value));DB.saveSettings({tol:tolv}).catch(x=>dbErr(x,'No se pudo guardar la tolerancia'))};
 
 // Excel
@@ -393,7 +399,14 @@ $('#file').onchange=async e=>{
 const MOTIVOS={exist:'No hay en existencia',inc:'Cartón incorrecto'};
 // EXCEPCIÓN: cambio de cartón porque «No hay en existencia» (todos los motivos de la captura son ese). No genera alertas,
 // no cuenta como «por corregir» ni como cambio de cartón en el resumen; el estado se sigue mostrando, con la nota «Excepción».
-const esExcep=r=>r.kind==='op'&&Array.isArray(r.mcc)&&r.mcc.length>0&&r.mcc.every(m=>m.m==='exist')&&['camb','cambcons'].includes(est(r).k);
+// VARIAS PIEZAS POR CAJA (v5.15): modelos de la lista cfg.vpc. El operador no ve «¿Por qué se cambió el cartón?»; sus OP son
+// excepción (no alertan por cambio de cartón, diferencia ni caja extra) y quedan fuera del Análisis (una línea en el Resumen).
+// Es reversible: al quitar el modelo de la lista todo vuelve a ser normal, también las OP anteriores.
+const vpcM=m=>(cfg.vpc||[]).includes(String(m||'').trim().toUpperCase());
+const esVpc=r=>r.kind==='op'&&vpcM(r.modelo);
+const esExcep=r=>r.kind==='op'&&((Array.isArray(r.mcc)&&r.mcc.length>0&&r.mcc.every(m=>m.m==='exist')&&['camb','cambcons'].includes(est(r).k))||
+  (esVpc(r)&&['camb','cambcons','cons','extra'].includes(est(r).k)));
+const excTxt=r=>esVpc(r)?'Excepción: varias piezas por caja':'Excepción: no había en existencia';
 const motTxt=r=>[...new Set((r.mcc||[]).map(x=>MOTIVOS[x.m]||x.m))].join(', ');
 // Fecha ISO (aaaa-mm-dd) → dd/mm/aaaa
 const fISO=s=>{const m=String(s||'').match(/^(\d{4})-(\d\d)-(\d\d)/);return m?m[3]+'/'+m[2]+'/'+m[1]:''};
@@ -435,7 +448,7 @@ function render(){
   <label>Cajas<input inputmode="numeric" data-b="${i}" data-f="n" value="${esc(L.n)}"></label></div>${cambiado(L)?panelMot(L,i):''}</div>`).join('');
 }
 // Cambio del cartón sugerido: solo en tarjetas prellenadas del ERP (L.o = cartón programado) cuyo ancho se cambió.
-const cambiado=L=>W.kind==='op'&&L.o!=null&&+L.a!==+L.o;
+const cambiado=L=>W.kind==='op'&&L.o!=null&&+L.a!==+L.o&&!vpcM(W.modelo);   // varias piezas por caja: no se pregunta el motivo
 const panelMot=(L,i)=>`<div class="mot${W.motErr&&!L.m?' err':''}"><b>¿Por qué se cambió el cartón?</b> <span class="mut">Programado ${L.o} cm → usado ${L.a} cm</span>
   <div class="row">${Object.entries(MOTIVOS).map(([k,t])=>`<button type="button" class="btn${L.m===k?'':' ghost'}" data-mot="${k}" data-i="${i}">${L.m===k?'✓ ':''}${esc(t)}</button>`).join('')}</div></div>`;
 $('#form').addEventListener('input',e=>{const d=e.target.dataset;if(d.f){const L=W.lines[d.b];L[d.f]=(d.f==='a'||d.f==='c')?+e.target.value:e.target.value;if(d.f==='c')e.target.style.borderColor=e.target.value==='0'?'var(--bad)':'';
@@ -649,7 +662,7 @@ function row(r){const e=est(r),op=r.kind==='op',was=r.est&&r.est!==e.t?`<br><spa
   const dbl=esDoble(r)?(r.rev?'<br><span class="chip na">OP doble consumo · revisada</span>':`<br><span class="chip bad">OP doble consumo · requiere revisión</span> <button class="btn ghost sm adm w" data-rev="${r.id}" type="button">Revisada: válida</button>`):'';
   return`<tr class="r-${e.k}"><td>${new Date(r.ts).toLocaleString('es-MX',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}<br><span class="mut">Sem. ${esc(r.semana)}</span>${r.operador?`<br><span class="mut">${esc(r.operador)}</span>`:''}</td>
   <td><b>${esc(r.modelo)}</b><br><span class="mut">${esc(r.op)} · ${esc(tipoReg(r))} · ${clase(r.modelo)}</span>${op&&opDesconocida(r.op)?' <span class="chip pend">revisar tipo de OP</span>':''}${op&&r.venc?`<br><small class="fp">Programa ${fISO(r.venc)}</small>`:''}</td>
-  <td>${chipE(e)}${esExcep(r)?'<br><span class="chip na">Excepción: no había en existencia</span>':''}${e.c&&e.c!=='—'?`<br><span class="mut">${esc(e.c)}</span>`:''}${was}${dbl}${e.k==='sinprog'?'<br>'+segChip(r.modelo)+` <button class="btn ghost sm adm w" data-seg="${esc(r.modelo)}" type="button">Seguimiento</button>`:''}</td>
+  <td>${chipE(e)}${esExcep(r)?`<br><span class="chip na">${excTxt(r)}</span>`:''}${e.c&&e.c!=='—'?`<br><span class="mut">${esc(e.c)}</span>`:''}${was}${dbl}${e.k==='sinprog'?'<br>'+segChip(r.modelo)+` <button class="btn ghost sm adm w" data-seg="${esc(r.modelo)}" type="button">Seguimiento</button>`:''}</td>
   <td>${colCarton(r)}</td>
   ${op&&porCarton(r).length>1?celdasCarton(r):`<td class="n">${op?fmt(r.E):'—'}</td><td class="n">${fmt(r.R+(r.Rsp||0))}</td><td class="n">${op?(fueraTol(r)?'<b>'+sgm(r.diff)+'</b>':sgm(r.diff)):'—'}${r.Rsp?`<br><span class="c-sinprog">+${fmt(r.Rsp)} sin programar</span>`:''}</td>`}
   <td>${op?cajasTxt(r):r.cr}</td><td class="det ccor">${celdaCorr(r)}</td><td class="det">${detail(r)}</td>
@@ -779,10 +792,12 @@ async function verificarCorrecciones(m){
 // Viñetas ✓ (bien) / ⚠ (atención). Cada regla es independiente: agregar o quitar una conclusión = una línea aquí.
 const dmy=t=>{const d=new Date(t);return p2(d.getDate())+'/'+p2(d.getMonth()+1)+'/'+d.getFullYear()};
 function periodoTxt(L){if(!L.length)return'';const t=L.map(r=>r.ts),a=dmy(Math.min(...t)),b=dmy(Math.max(...t));return a===b?`El ${a}`:`Del ${a} al ${b}`}
-function resumenEjecutivo(L,s,M,A,net,abs){
+function resumenEjecutivo(L,s,M,A,net,abs,XV){
   // Puntos fijos, en este orden: consumo vs esperado · OP fuera de tolerancia · cambios de cartón · cajas extra · alertas.
+  // Al final, si hay: OP de modelos con varias piezas por caja (fuera del análisis).
   const I=[],n=s.B.length,pl=(x,u,v)=>x===1?u:v,b=t=>['in',t];
-  if(!n)return lista([b('No hay OP completas para comparar contra lo esperado en este periodo.')]);
+  const xv=XV&&XV.length?b(`Además, <b>${XV.length} OP</b> ${pl(new Set(XV.map(r=>r.modelo)).size,'del modelo','de los modelos')} con varias piezas por caja (${esc([...new Set(XV.map(r=>r.modelo))].join(', '))} · ${fmt(XV.reduce((t,r)=>t+r.R+(r.Rsp||0),0))} m² reales) quedan fuera de este análisis.`):null;
+  if(!n)return lista([b('No hay OP completas para comparar contra lo esperado en este periodo.'),...(xv?[xv]:[])]);
   const v=vp(s.R,s.E);
   I.push(b(v==null?'Sin consumo esperado para comparar.':Math.abs(v)<0.05?'El consumo real es igual al esperado.':`El consumo real está <b>${Math.abs(v).toFixed(1)} % ${v>0?'por encima':'por debajo'}</b> del esperado.`));
   const fT=s.B.filter(fueraTol).length;
@@ -793,6 +808,7 @@ function resumenEjecutivo(L,s,M,A,net,abs){
   I.push(b(EX.length?`<b>${cx}</b> ${pl(cx,'caja extra','cajas extra')} (en ${EX.length} OP).`:'Sin cajas extra.'));
   const pend=A.filter(a=>a[2]).length;
   I.push(b(pend?`Hay <b>${pend} ${pl(pend,'alerta pendiente','alertas pendientes')}</b> de revisión.`:'Sin alertas pendientes.'));
+  if(xv)I.push(xv);
   return lista(I);
 }
 // ==== 5 · Por día de la semana ====  Día = fecha de captura (igual que la semana). Lunes a viernes siempre;
@@ -839,9 +855,9 @@ $('#ana').addEventListener('change',e=>{if(e.target.id==='ressem'){resSem=e.targ
 function analysis(){
   // La semana elegida en el Resumen ejecutivo (esquina del título) controla TODA la página: L = registros de esa semana.
   // «Global» = todo el periodo filtrado. Solo el gráfico de la sección 4 conserva todas las semanas (tendencia) y marca la elegida.
-  weeks();const LT=filt(),SW=[...new Set(LT.map(r=>r.semana).filter(Boolean))].sort().reverse();
+  weeks();const LT0=filt(),LT=LT0.filter(r=>!esVpc(r)),SW=[...new Set(LT.map(r=>r.semana).filter(Boolean))].sort().reverse();
   if(resSem!=='*'&&!SW.includes(resSem))resSem=SW[0]||'*';
-  const L=resSem==='*'?LT:LT.filter(r=>r.semana===resSem),s=summ(L),sT=summ(LT),M=modelosCalc(L),net=s.P+s.N,abs=s.P-s.N,comp=abs?(abs-Math.abs(net))/abs*100:0;
+  const L=resSem==='*'?LT:LT.filter(r=>r.semana===resSem),XV=LT0.filter(r=>esVpc(r)&&(resSem==='*'||r.semana===resSem)),s=summ(L),sT=summ(LT),M=modelosCalc(L),net=s.P+s.N,abs=s.P-s.N,comp=abs?(abs-Math.abs(net))/abs*100:0;
   const fSem=w=>{const l=lunesDe(w);if(!l)return w;const v=new Date(l);v.setDate(v.getDate()+4);return dmy(l)+' – '+dmy(v)};
   const selSem=`<select id="ressem" class="ressel" title="Semana que se analiza en toda la página"><option value="*"${resSem==='*'?' selected':''}>Global</option>${SW.map(w=>`<option value="${w}"${w===resSem?' selected':''}>${esc(fSem(w))}</option>`).join('')}</select>`;
   $('#dsum').innerHTML=`${cnt(L)}: ${s.B.length} OP analizadas · ${s.inc.length} incompletos · ${s.incl.length} inclusiones · ${s.ingr.length} de ingeniería`;
@@ -849,7 +865,7 @@ function analysis(){
   const lg1='<p class="mut"><i class="sw e"></i> Esperado &nbsp;<i class="sw re"></i> Real</p>',lg2='<p class="mut"><i class="sw nb"></i> Consumió de menos &nbsp;<i class="sw pb"></i> Consumió de más</p>';
   const A0=alertas(L,s,M),AS=alertasSeparar(A0,1),A=AS.vis,okp=s.B.length?s.ok/s.B.length*100:0;   // A = alertas no descartadas
   // 1 · Resumen ejecutivo (semana elegida o Global). Ver resumenEjecutivo().
-  const r1=resumenEjecutivo(L,s,M,A,net,abs);
+  const r1=resumenEjecutivo(L,s,M,A,net,abs,XV);
   // 2 · Indicadores
   const r2=`<div class="kpis">${K('Consumo esperado',fmt(s.E)+' m²')}${K('Consumo real',fmt(s.R)+' m²')}${K('Diferencia neta',sgm(net)+' m²','',pct(s.R,s.E))}${K('Diferencia absoluta',fmt(abs)+' m²')}${K('OP correctas',fmt(okp)+' %','',`${s.ok} de ${s.B.length}`)}</div>
     <h3>¿Se compensan los consumos de más y de menos?</h3>

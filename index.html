@@ -4,13 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Consumo de cartón</title>
-<meta name="version" content="5.14.0">
+<meta name="version" content="5.15.0">
 <link rel="stylesheet" href="vendor/fonts.css">
 <script src="vendor/xlsx.full.min.js"></script>
 <script src="vendor/supabase.min.js"></script>
 <!-- config.js: URL y clave pública del proyecto de Supabase. Vacío = la app trabaja solo en el navegador. Ver GUIA-NUBE.md -->
 <script src="config.js"></script>
-<link rel="stylesheet" href="estilos.css?v=5.14.0">
+<link rel="stylesheet" href="estilos.css?v=5.15.0">
 </head>
 <body>
 <div class="shell">
@@ -56,6 +56,9 @@
 <label class="mut">Tipos de OP (uno por línea: PREFIJO = Nombre). «OP» + número es Normal; un prefijo no listado entra como «Otro» con aviso.<textarea id="tipcfg" rows="5"></textarea></label>
 <label class="mut">Prefijos excluidos al cargar (separados por coma): no aparecen en ningún reporte<input id="exccfg"></label>
 <div class="row" style="margin-top:6px"><button class="btn ghost sm" id="savetip" type="button">Guardar tipos y exclusiones</button></div></details>
+<details class="box"><summary><b>Varias piezas por caja</b> <span class="mut">(modelos que empacan varias piezas en una caja)</span></summary>
+<label class="mut">Modelos separados por coma. En planta no se pregunta por qué se cambió el cartón; sus OP no generan alertas (excepción) y quedan fuera del Análisis. Al quitar un modelo, todo vuelve a ser normal.<input id="vpccfg" placeholder="Ej.: IWMSIA"></label>
+<div class="row" style="margin-top:6px"><button class="btn ghost sm" id="savevpc" type="button">Guardar modelos</button></div></details>
 <p class="mut" id="cfgmsg"></p>
 </details>
 
@@ -141,10 +144,10 @@
 </main>
 </div>
 
-<script src="js/comun.js?v=5.14.0"></script>
-<script src="js/carton.js?v=5.14.0"></script>
-<script src="js/hojas.js?v=5.14.0"></script>
-<script src="js/comparativo.js?v=5.14.0"></script>
-<script src="js/app.js?v=5.14.0"></script>
+<script src="js/comun.js?v=5.15.0"></script>
+<script src="js/carton.js?v=5.15.0"></script>
+<script src="js/hojas.js?v=5.15.0"></script>
+<script src="js/comparativo.js?v=5.15.0"></script>
+<script src="js/app.js?v=5.15.0"></script>
 </body>
 </html>

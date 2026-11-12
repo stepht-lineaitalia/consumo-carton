@@ -64,7 +64,7 @@ $('#saveopr').onclick=async()=>{const L=[...new Set($('#oprcfg').value.split('\n
 async function cargarApp(){
   aplicarRol();stat('Cargando datos…');
   try{const [st,c,r,o]=await Promise.all([DB.getSettings(),DB.getCatalog(),DB.listReports(),DB.listOperadores(),alertasLeer()]);
-    tolv=st.tol;cfg={tol:st.tol,cartones:st.cartones||cfg.cartones,prefijos:st.prefijos||cfg.prefijos,excluir:st.excluir||cfg.excluir,modelosExc:st.modelosExc||cfg.modelosExc,seguimiento:st.seguimiento||{},respaldo:st.respaldo||null};cat=c;reports=r;operadores=o||[];stat('')}
+    tolv=st.tol;cfg={tol:st.tol,cartones:st.cartones||cfg.cartones,prefijos:st.prefijos||cfg.prefijos,excluir:st.excluir||cfg.excluir,modelosExc:st.modelosExc||cfg.modelosExc,vpc:st.vpc||cfg.vpc||[],seguimiento:st.seguimiento||{},respaldo:st.respaldo||null};cat=c;reports=r;operadores=o||[];stat('')}
   catch(e){dbErr(e,'No se pudieron cargar los datos')}
   $('#tol').value=tolv;$('#oprcfg').value=operadores.join('\n');showRespaldo();showCat();showCfg();showOperador();misHoy();
   DB.onChange(async()=>{await reload();if(cur!==1)refresh();else misHoy()});
