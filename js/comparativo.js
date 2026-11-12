@@ -10,7 +10,7 @@ function cmpDatos(){
     const e=r?est(r):null,cDif=!!e&&e.cls==='bad'&&!esExcep(r),hReg=!!(h&&h.r),hDif=!!h&&(h.k==='mas'||h.k==='menos');
     // «Corregida»: cada material que necesitaba corrección ya tiene la marca (Cartón: Corregido · Hojas: Corregido).
     const cNec=!!r&&porCorregir(r),cOk=cNec&&!!r.corr,hNec=!!h&&hsPorCorregir(h),hOk=hNec&&!!h.r.rev,corregida=(cNec||hNec)&&(!cNec||cOk)&&(!hNec||hOk);
-    return{cOk,hOk,corregida,op,modelo:(r&&r.modelo)||(h&&h.modelo)||'',fecha:(h&&h.fecha)||(r&&r.venc)||'',area:h&&h.area||'',c:r?{r,e,n:c.n,u:cmpUnir(c.rs)}:null,h:h||null,hReg,cDif,hDif,
+    return{cOk,hOk,corregida,op,modelo:(r&&r.modelo)||(h&&h.modelo)||'',fecha:(h&&h.fecha)||(r&&r.venc)||'',area:h&&h.area||'',c:r?{r,e,n:c.n,rs:c.rs,u:cmpUnir(c.rs)}:null,h:h||null,hReg,cDif,hDif,
       ult:Math.max(r?r.ts:0,hReg?h.r.ts:0)}});
 }
 const cmpCelC=x=>x.c?chipE(x.c.e,(EST[x.c.e.k]||{}).s||x.c.e.t)+(x.cOk?' <span class="c-ok" title="Corregido">✓</span>':''):'<span class="chip st st-pend">Sin registro</span>';
@@ -66,6 +66,10 @@ function cmpTablaD(F,T){
     `<tr><td>${cm(f.p)}</td><td${f.m?` class="${CMP_MOT[f.m]}"`:''}${f.x?` title="${f.x}"`:''}>${cm(f.u)}${f.x?'<sup>*</sup>':''}</td><td>${m(f.E)}</td><td>${m(f.R)}</td></tr>`).join('')}</tbody>${T?`<tfoot><tr><th colspan="2">Total (${T.n} registros)</th><th>${fmt(T.E)}</th><th>${fmt(T.R)}</th></tr></tfoot>`:''}</table>${ley}`}
 
 // Tarjetas de una OP: cartón | hojas single.
+// Comentarios de las capturas de cartón (v5.16). Un registro: «• Comentario: …». Varios: cada comentario con su fecha.
+const cmpComC=c=>{const L=(c.rs||[c.r]).filter(r=>(r.com||'').trim());if(!L.length)return'';
+  return L.length===1&&c.n===1?`<div class="line">• Comentario: ${esc(L[0].com.trim())}</div>`
+    :`<div class="line">• ${L.length>1?'Comentarios':'Comentario'}: ${L.map(r=>`<span class="mut">${dmy(r.ts)}</span> ${esc(r.com.trim())}`).join(' · ')}</div>`};
 function cmpTarjetas(x){
   const kp=(t,v,c)=>`<div class="kpi"><span class="mut">${t}</span><b class="${c||''}">${v}</b></div>`;
   let cc='<p class="mut">Esta OP no tiene registro de cartón.</p>';
@@ -73,7 +77,7 @@ function cmpTarjetas(x){
     cc=`${chipE(x.c.e)}<div class="kpis cmpk">${todoSp?kp('m² esperados','Sin programar','c-sinprog')+kp('m² reales',fmt(r.Rsp))+kp('Diferencia','—')
       :kp('m² esperados',fmt(r.E))+kp('m² reales',fmt(r.R))+kp('Diferencia',`${sgm(d)} <span class="mut" style="font-size:13px">(${pct(r.R,r.E)})</span>`,d>0?'pos':d<0?'neg':'')}</div>
     ${r.Rsp&&!todoSp?`<div class="line">• ${cmpSp(r).replace('sin programar','m² sin programar')}</div>`:''}
-    ${r.multi?cmpDesgloseW(r):cmpDesglose(r)}<div class="line">• Cajas: ${r.ce||0} → ${r.cr||0}</div>
+    ${r.multi?cmpDesgloseW(r):cmpDesglose(r)}<div class="line">• Cajas: ${r.ce||0} → ${r.cr||0}</div>${cmpComC(x.c)}
     ${x.c.n>1?`<div class="line pos">• La OP tiene ${x.c.n} registros de cartón (los m² son la suma de todos; el estado es el del último).</div>`:''}<div class="line mut">• Registrado ${r.fechas?r.fechas.length>1?r.fechas.slice(0,-1).join(', ')+' y '+r.fechas[r.fechas.length-1]:r.fechas[0]+` (${x.c.n} veces)`:dmy(r.ts)}</div>
     <a href="#" class="cmplk" data-cmpc="${esc(x.op)}">Ver en Cartón → Tablero</a>`}
   let hh='<p class="mut">Esta OP no viene en el programa de hojas single.</p>';
