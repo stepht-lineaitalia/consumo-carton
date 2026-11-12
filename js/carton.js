@@ -249,7 +249,7 @@ const chipE=(e,txt)=>`<span class="chip st st-${e.k}" title="${esc((EST[e.k]||{}
      · cartón usado en una OP que no tiene ningún cartón con m² en el ERP (OP sin cartón, o solo cartones en 0 m²).
    Es el estado de mayor prioridad (problema de la programación en Dynamics). Ese consumo va aparte (Rsp): no entra en
    diferencias ni compensación; el resto de los cartones de la OP se compara normal. La app NO corrige la programación:
-   el seguimiento es por modelo (Pendiente → Reportado a Dynamics → Corregido en origen). */
+   el seguimiento es por modelo (Pendiente · Caja en L.M. · Corregido en Dynamics). */
 const pg=p=>p.prog!=null?!!p.prog:p.E>0;   // ¿cartón programado en el ERP? (registros anteriores a v5.1: E>0)
 const SPM={cero:'en 0 m² en el ERP',sinop:'OP sin cartón programado en el ERP',otro:'sin m² programados en el ERP'};
 function estRaw(o){
@@ -362,7 +362,7 @@ async function cargarConsumos(rows){
   let x='';
   if(info.cero.size){const z=[...info.cero].map(k=>{const [op,a]=k.split('|');return`${esc(op)} · ${esc(m[op].modelo)} · ${a} cm`});
     x+=`<div class="banner sp" style="margin-top:8px">⚠ ${z.length} cartón(es) programados con <b>0 m²</b> en el ERP (revisar en Dynamics). Las OP se pueden capturar; si consumen ese cartón se marcan «Sin programar»:<br>${z.slice(0,15).join('<br>')}${z.length>15?'<br>…':''}</div>`}
-  try{const ok=ops.length?await verificarCorrecciones(m):[];if(ok.length)x+=`<div><b style="color:var(--s-ok)">✓ Corregido en origen</b> (ya viene programado en el ERP): ${esc(ok.join(', '))}.</div>`}catch(e){}
+  try{const ok=ops.length?await verificarCorrecciones(m):[];if(ok.length)x+=`<div><b style="color:var(--s-ok)">✓ Corregido en Dynamics</b> (ya viene programado en el ERP): ${esc(ok.join(', '))}.</div>`}catch(e){}
   if(info.otros.size)x+=`<div>⚠ Tipo de OP no reconocido, entra como «Otro» para revisión: <b>${esc([...info.otros].join(', '))}</b>. Si es un tipo válido, agrégalo en «Tipos de OP».</div>`;
   if(ct.length)x+=`<div>⚠ La descripción no coincide con el ancho del catálogo (manda el catálogo): `+ct.map(c=>`${esc(c.cod)} «${esc(c.nombre)}» = ${c.ancho} cm`).join('; ')+'.</div>';
   if(nv.length)x+=`<div class="banner pend" style="margin-top:8px">⚠ ${nv.reduce((s,q)=>s+q.n,0)} línea(s) parecen cartón para caja pero su código no está en el catálogo y <b>no se cargaron</b>:<br>`+
@@ -705,11 +705,12 @@ const SEC=(n,t,body,id)=>`<section class="card sec"${id?` id="${id}"`:''}><h2><s
 // Alertas importantes (sección 3): cada una lleva directo a donde se revisa.
 function alertas(L,s,M){
   const A=[],nd=L.filter(doblePend),ops=new Set(nd.map(r=>r.op));
-  const SG=segModelos(L),ab=SG.filter(g=>g.estado!=='corr'),ce=SG.filter(g=>g.estado==='corr');
+  const SG=segModelos(L),ab=SG.filter(g=>g.estado==='pend'),ce=SG.filter(g=>g.estado==='corr');
   if(ab.length){const n=ab.reduce((t,g)=>t+g.n,0),m=ab.reduce((t,g)=>t+g.R,0);
     A.push(['st-sinprog',`<b>${n} OP de ${ab.length} modelo(s) consumieron ${fmt(m)} m² de cartón sin programar en el ERP</b> (revisar en Dynamics):`+
       ab.slice(0,8).map(g=>`<span class="sgl"><b>${esc(g.modelo)}</b> · ${g.n} OP · ${fmt(g.R)} m² · ${segChip(g.modelo)} <button class="btn ghost sm w" type="button" data-seg="${esc(g.modelo)}">Seguimiento</button></span>`).join('')+(ab.length>8?`<span class="sgl mut">y ${ab.length-8} modelo(s) más</span>`:''),'2|sinprog'])}
-  if(ce.length)A.push(['st-ok',`✓ ${ce.length} modelo(s) con consumo sin programar ya <b>corregidos en origen</b>: ${ce.slice(0,6).map(g=>esc(g.modelo)).join(', ')}.`,'']);
+  if(ce.length)A.push(['st-ok',`✓ ${ce.length} modelo(s) con consumo sin programar ya <b>corregidos en Dynamics</b>: ${ce.slice(0,6).map(g=>esc(g.modelo)).join(', ')}.`,'']);
+  cajaRepite().forEach(a=>A.push(a));
   if(nd.length)A.push(['st-cambcons',`<b>${ops.size} OP con doble consumo</b> por revisar (${nd.length} captura(s) adicional(es)).`,'2|doble']);
   // (pestaña Modelos oculta desde v5.12: la alerta de variantes fuera del patrón ya no se muestra porque no hay a dónde llevarla)
   // Lo marcado «Corregido» en el Tablero ya no cuenta como pendiente: la alerta muestra lo que falta y cuántos ya se corrigieron.
@@ -726,18 +727,23 @@ function alertas(L,s,M){
   return A;
 }
 /* ==== SEGUIMIENTO «SIN PROGRAMAR» (por modelo) ====
-   La app NO corrige la programación: Dynamics es la única fuente. Aquí solo se registra el seguimiento:
-   Pendiente (automático) → Reportado a Dynamics (admin, con comentario) → Corregido en origen
-   (automático cuando llega una OP nueva del modelo con su cartón programado en m², o manual). Se guarda en cfg.seguimiento.
-   Si después de «Corregido» vuelve a aparecer consumo sin programar del modelo, se reabre. */
-const SEG={pend:'Pendiente',rep:'Reportado a Dynamics',corr:'Corregido en origen'};
-function segEstado(modelo,ult){const g=cfg.seguimiento[modelo]||{};if(!g.estado)return'pend';if(g.estado==='corr'&&ult>(g.ts||0))return'pend';return g.estado}
+   La app NO corrige la programación: Dynamics es la única fuente. Aquí solo se registra el seguimiento (v5.14):
+   · Pendiente (automático): revisar en Dynamics.
+   · Caja en L.M. (admin): el modelo lleva caja comprada en su lista de materiales; si hicieron caja de cartón fue porque
+     se acabó la comprada. No es error de programación: no entra en la alerta morada y no se cierra sola. Si el modelo
+     vuelve a consumir cartón DESPUÉS de marcarlo, sale una alerta (naranja) que se quita con la × de las alertas.
+   · Corregido en Dynamics (automático cuando llega una OP nueva del modelo con su cartón programado en m², o manual).
+     Si después vuelve a aparecer consumo sin programar del modelo, se reabre.
+   «Reportado a Dynamics» (hasta v5.13) ya no existe: esos modelos se leen como Pendiente; el historial se conserva. */
+const SEG={pend:'Pendiente',caja:'Caja en L.M.',corr:'Corregido en Dynamics'};
+const SEGH={...SEG,rep:'Reportado a Dynamics'};   // historial: incluye el estado que ya no existe
+function segEstado(modelo,ult){const g=cfg.seguimiento[modelo]||{};if(!g.estado||!SEG[g.estado])return'pend';if(g.estado==='corr'&&ult>(g.ts||0))return'pend';return g.estado}
 function segModelos(L){const G={};
   L.filter(r=>r.kind==='op'&&est(r).k==='sinprog').forEach(r=>{const g=G[r.modelo]||(G[r.modelo]={modelo:r.modelo,ops:new Set(),R:0,ult:0});g.ops.add(r.op);g.R+=r.Rsp||0;g.ult=Math.max(g.ult,r.ts)});
   return Object.values(G).map(g=>({...g,n:g.ops.size,estado:segEstado(g.modelo,g.ult)})).sort((a,b)=>b.R-a.R)}
 function segChip(modelo){const ult=Math.max(0,...vis().filter(r=>r.modelo===modelo&&r.kind==='op'&&est(r).k==='sinprog').map(r=>r.ts)),e=segEstado(modelo,ult),g=cfg.seguimiento[modelo]||{};
   const reab=g.estado==='corr'&&e==='pend';
-  return`<span class="chip st st-${e==='corr'?'ok':e==='rep'?'camb':'sinprog'}" title="${esc((g.com||'')+(g.por?' — '+g.por+' '+dmy(g.ts):''))}">${SEG[e]}${reab?' (reabierto)':''}${e==='corr'&&g.auto?' ✓':''}</span>`}
+  return`<span class="chip st st-${e==='corr'?'ok':e==='caja'?'caja':'sinprog'}" title="${esc((g.com||'')+(g.por?' — '+g.por+' '+dmy(g.ts):''))}">${SEG[e]}${reab?' (reabierto)':''}${e==='corr'&&g.auto?' ✓':''}</span>`}
 const quien=()=>sesion?(sesion.nombre||sesion.email):'Administración (local)';
 async function guardarSeg(modelo,nuevo){   // relee antes de escribir para no pisar el seguimiento de otro modelo
   const st=await DB.getSettings(),sg={...(st.seguimiento||{})},prev=sg[modelo]||{};
@@ -747,16 +753,25 @@ let segModelo=null;
 document.addEventListener('click',e=>{const b=e.target.closest('[data-seg]');if(!b)return;segModelo=b.dataset.seg;
   const g=cfg.seguimiento[segModelo]||{},L=vis().filter(r=>r.modelo===segModelo&&r.kind==='op'&&est(r).k==='sinprog');
   $('#sgm').textContent=segModelo;$('#sgi').innerHTML=`${new Set(L.map(r=>r.op)).size} OP con consumo sin programar (${fmt(L.reduce((t,r)=>t+(r.Rsp||0),0))} m²): ${esc([...new Set(L.map(r=>r.op))].slice(0,8).join(', '))}`+
-    (g.hist&&g.hist.length?'<br>'+g.hist.slice(-3).map(h=>`${dmy(h.ts)} · ${esc(SEG[h.estado])} · ${esc(h.por)}${h.com?' — '+esc(h.com):''}`).join('<br>'):'');
+    (g.hist&&g.hist.length?'<br>'+g.hist.slice(-3).map(h=>`${dmy(h.ts)} · ${esc(SEGH[h.estado]||h.estado)} · ${esc(h.por)}${h.com?' — '+esc(h.com):''}`).join('<br>'):'');
   $('#sge').value=segEstado(segModelo,Math.max(0,...L.map(r=>r.ts)));$('#sgc').value='';$('#dlgs').showModal()});
 $('#sgno').onclick=()=>$('#dlgs').close();
 $('#sgok').onclick=async()=>{const m=segModelo;if(!m)return;
   try{await guardarSeg(m,{estado:$('#sge').value,com:$('#sgc').value.trim(),por:quien(),ts:Date.now(),auto:false})}catch(x){dbErr(x,'No se pudo guardar el seguimiento');return}
   $('#dlgs').close();refresh()};
-// Al cargar el Excel: un modelo con consumo sin programar se da por «Corregido en origen» si llega una OP NUEVA de ese
-// modelo con todos sus cartones programados en m².
+// Al cargar el Excel: un modelo Pendiente se da por «Corregido en Dynamics» si llega una OP NUEVA de ese modelo con todos
+// sus cartones programados en m². Los modelos «Caja en L.M.» no se cierran solos.
+// «Caja en L.M.» que se repite: OP del modelo con consumo sin programar capturadas DESPUÉS de marcarlo.
+// Una alerta por modelo; el texto lleva las OP, así que si se quita con × vuelve a salir solo cuando hay otra OP.
+function cajaRepite(){
+  const A=[],G={};
+  vis().filter(r=>r.kind==='op'&&est(r).k==='sinprog').forEach(r=>{const g=cfg.seguimiento[r.modelo];
+    if(!g||g.estado!=='caja'||!(r.ts>(g.ts||0)))return;(G[r.modelo]||(G[r.modelo]=[])).push(r)});
+  Object.entries(G).forEach(([mo,rs])=>{rs.sort((a,b)=>a.ts-b.ts);const ops=[...new Set(rs.map(r=>r.op))];
+    A.push(['st-camb',`<b>${esc(mo)} · caja en L.M.:</b> se volvió a hacer caja de cartón en ${ops.length>1?ops.length+' OP: ':''}${esc(ops.slice(0,6).join(', '))}${ops.length>6?'…':''} (${dmy(rs[rs.length-1].ts)}, ${fmt(rs.reduce((t,r)=>t+(r.Rsp||0),0))} m²).`,'2|q:'+mo])});
+  return A}
 async function verificarCorrecciones(m){
-  await reload();const SG=segModelos(vis()).filter(g=>g.estado!=='corr'),ok=[];
+  await reload();const SG=segModelos(vis()).filter(g=>g.estado==='pend'),ok=[];
   for(const g of SG){const o=Object.values(m).find(x=>x.modelo===g.modelo&&!g.ops.has(x.op)&&x.rows.length&&x.rows.every(r=>r.val>0));
     if(o){await guardarSeg(g.modelo,{estado:'corr',auto:true,verif:o.op,com:`Llegó ${o.op} con su cartón programado en el ERP`,por:'Automático (carga del Excel)',ts:Date.now()});ok.push(`${g.modelo} (${o.op})`)}}
   return ok}
