@@ -13,6 +13,8 @@ const DEF_CFG={
   // Excepciones de agrupación de modelos (código exacto → modelo principal). Inicial: la hoja «Excepciones» del maestro.
   // Modelos con varias piezas por caja (v5.15): la L.M. programa 1 caja por pieza, pero en piso juntan varias piezas en una caja.
   vpc:[],
+  // Catálogo de rutas (v5.16): código del mueble (Cód. procedencia mov.) → {r: Nº ruta = modelo base, d: descripción}. Se carga en Modelos.
+  rutas:{},
   modelosExc:{'C2-2210L':'C2-2210','C2-2203BH':'C2-2203','LINBKD3S-FWN':'LINBKD3S','YPCUBSETT-LD150':'Y-CUBSETTL150','YPCUBSETT-LI150':'Y-CUBSETTL150'}
 };
 let cfg={...JSON.parse(JSON.stringify(DEF_CFG)),seguimiento:{}};
@@ -33,17 +35,22 @@ const tipoReg=r=>r.kind==='op'?tipoOp(r.op):KINDS[r.kind]||KINDS.inc;
 const clase=m=>/^F/i.test(String(m).trim())?'Folio':'Línea';
 const tipoModelo=clase;
 
-/* ==== AGRUPACIÓN DE MODELOS (PROVISIONAL) ====
+/* ==== AGRUPACIÓN DE MODELOS ====
+   v5.16: manda el Nº ruta de Dynamics (catálogo cfg.rutas, cargado en Modelos): los colores y los folios de un mismo
+   modelo base comparten ruta. Orden: excepción manual → Nº ruta → reglas provisionales (solo códigos aún sin ruta).
+   Reglas provisionales:
    Pieza reemplazable: cuando el negocio entregue sus reglas y claves, se cambia SOLO AGRUPACION.clave (y las excepciones).
    Hoy reproduce las reglas del archivo maestro (hojas Aux_Modelo y Excepciones), en este orden:
    0) excepción explícita (código exacto → modelo principal), editable en la pestaña Modelos;
    1) «C<dígito>-…»  → C2-2210L = «C2-2210»;   2) «SKLASS…» → SKLASS + número;   3) «FA-»/«FC-» → F + número;
    4) «CUB…» → hasta el final del primer número;  5) «KLASS…» → código completo;
    6) sin número → código sin «-ESP»/«-FWN»;      7) con número → el primer número (las letras se consideran color/variante). */
-const AGRUPACION={nombre:'Provisional: reglas del archivo maestro',
+const rutaDe=cod=>{const x=(cfg.rutas||{})[String(cod==null?'':cod).trim().toUpperCase()];return x&&x.r?String(x.r).toUpperCase():''};
+const AGRUPACION={nombre:'Por Nº ruta de Dynamics (códigos sin ruta: reglas provisionales del archivo maestro)',
   clave(cod){
     const c=String(cod==null?'':cod).trim().toUpperCase();if(!c)return'(sin código)';
     const ex=cfg.modelosExc||{};if(ex[c])return String(ex[c]).toUpperCase();
+    const ru=rutaDe(c);if(ru)return ru;
     const dig=x=>(x.match(/^\d+/)||[''])[0];let m;
     if((m=c.match(/^(C\d-)(.*)$/))){const d=dig(m[2]);return d?m[1]+d:c}
     if(c.startsWith('SKLASS'))return'SKLASS'+dig(c.slice(6));
@@ -67,7 +74,7 @@ const SAMPLE=[
      saveReport(rep)          → inserta o reemplaza por id (asigna id si falta) y VERIFICA que quedó guardado
      deleteReport(id)         importReports(arr) → {added,total}
      getCatalog()             upsertOps(ops,{overwrite}) → catálogo resultante (quita las OP de demostración)
-     getSettings()            saveSettings({tol,cartones,prefijos,excluir,modelosExc,vpc,seguimiento})  (lo que falte toma el valor inicial DEF_CFG)
+     getSettings()            saveSettings({tol,cartones,prefijos,excluir,modelosExc,vpc,rutas,seguimiento})  (lo que falte toma el valor inicial DEF_CFG)
      listOperadores()         saveOperadores(lista)   (nombres para elegir en planta)
      getAuth() setAuth(a)     contraseña de admin del modo local (en la nube: sesion(), entrar(), salir())
      onChange(cb)             avisa cuando otro usuario/pestaña cambió los reportes
@@ -105,6 +112,7 @@ function mezclarCfg(t,c){c=c||{};const d=JSON.parse(JSON.stringify(DEF_CFG));
     prefijos:okMap(c.prefijos,v=>typeof v==='string'&&v.trim())?c.prefijos:d.prefijos,
     excluir:Array.isArray(c.excluir)?c.excluir.map(String):d.excluir,
     modelosExc:c.modelosExc&&typeof c.modelosExc==='object'&&!Array.isArray(c.modelosExc)?c.modelosExc:d.modelosExc,
+    rutas:c.rutas&&typeof c.rutas==='object'&&!Array.isArray(c.rutas)?c.rutas:{},
     vpc:Array.isArray(c.vpc)?c.vpc.map(x=>String(x).trim().toUpperCase()).filter(Boolean):d.vpc,
     seguimiento:c.seguimiento&&typeof c.seguimiento==='object'&&!Array.isArray(c.seguimiento)?c.seguimiento:{},
     respaldo:c.respaldo&&fin(c.respaldo.ts)?c.respaldo:null}}
@@ -149,7 +157,7 @@ const LocalDB=(()=>{
     },
     async getSettings(){return mezclarCfg(get(K.tol,DEF_CFG.tol),get(K.cfg,{})||{})},
     async saveSettings(s){if(!s)return;if('tol' in s)put(K.tol,s.tol);
-      const c=get(K.cfg,{})||{};let ch=false;['cartones','prefijos','excluir','modelosExc','vpc','seguimiento','respaldo'].forEach(k=>{if(k in s){c[k]=s[k];ch=true}});if(ch)put(K.cfg,c)},
+      const c=get(K.cfg,{})||{};let ch=false;['cartones','prefijos','excluir','modelosExc','vpc','rutas','seguimiento','respaldo'].forEach(k=>{if(k in s){c[k]=s[k];ch=true}});if(ch)put(K.cfg,c)},
     async listOperadores(){const l=get(K.opr,[]);return Array.isArray(l)?l.map(String):[]},
     async saveOperadores(l){put(K.opr,l)},
     async getAuth(){return get(K.auth,null)},
@@ -196,7 +204,7 @@ const CloudDB=sb=>{
       for(let i=0;i<rows.length;i+=500)await run(sb.from('ops').upsert(rows.slice(i,i+500),{onConflict:'op',ignoreDuplicates:!(o&&o.overwrite)}));
       return api.getCatalog()},
     async getSettings(){const rows=await run(sb.from('config').select('k,v'));const c={};(rows||[]).forEach(w=>c[w.k]=w.v);return mezclarCfg(c.tol,c)},
-    async saveSettings(s){if(!s)return;const rows=['tol','cartones','prefijos','excluir','modelosExc','vpc','seguimiento','respaldo'].filter(k=>k in s).map(k=>({k,v:s[k],updated_at:new Date().toISOString()}));
+    async saveSettings(s){if(!s)return;const rows=['tol','cartones','prefijos','excluir','modelosExc','vpc','rutas','seguimiento','respaldo'].filter(k=>k in s).map(k=>({k,v:s[k],updated_at:new Date().toISOString()}));
       if(rows.length)await run(sb.from('config').upsert(rows,{onConflict:'k'}))},
     async listOperadores(){return(await run(sb.from('operadores').select('nombre,activo').order('nombre'))||[]).filter(x=>x.activo).map(x=>x.nombre)},
     async saveOperadores(lista){const ya=await run(sb.from('operadores').select('nombre,activo'))||[],L=new Set(lista);
@@ -402,7 +410,9 @@ const MOTIVOS={exist:'No hay en existencia',inc:'Cartón incorrecto'};
 // VARIAS PIEZAS POR CAJA (v5.15): modelos de la lista cfg.vpc. El operador no ve «¿Por qué se cambió el cartón?»; sus OP son
 // excepción (no alertan por cambio de cartón, diferencia ni caja extra) y quedan fuera del Análisis (una línea en el Resumen).
 // Es reversible: al quitar el modelo de la lista todo vuelve a ser normal, también las OP anteriores.
-const vpcM=m=>(cfg.vpc||[]).includes(String(m||'').trim().toUpperCase());
+// v5.16: la excepción aplica a TODA la ruta del modelo de la lista (p. ej. IWMSIA → ruta IWMI → también FD-6747F).
+const vpcM=m=>{const c=String(m||'').trim().toUpperCase(),V=cfg.vpc||[];if(V.includes(c))return true;
+  const r=rutaDe(c);return!!r&&V.some(x=>x===r||rutaDe(x)===r)};
 const esVpc=r=>r.kind==='op'&&vpcM(r.modelo);
 const esExcep=r=>r.kind==='op'&&((Array.isArray(r.mcc)&&r.mcc.length>0&&r.mcc.every(m=>m.m==='exist')&&['camb','cambcons'].includes(est(r).k))||
   (esVpc(r)&&['camb','cambcons','cons','extra'].includes(est(r).k)));
@@ -914,30 +924,61 @@ const juego=r=>r.per.filter(p=>p.R>0).map(p=>p.a).sort((a,b)=>a-b).join(' + ')+'
 function modelosCalc(L){
   const B=L.filter(isA),G={};
   B.forEach(r=>{const k=modeloPrincipal(r.modelo);(G[k]||(G[k]=[])).push(r)});
+  const mueb=a=>a.reduce((s,r)=>s+(r.cant||1),0),SE=a=>a.reduce((s,r)=>s+r.E,0),SR=a=>a.reduce((s,r)=>s+r.R,0);
   const out=Object.entries(G).map(([k,rs])=>{
-    const mueb=a=>a.reduce((s,r)=>s+(r.cant||1),0),SE=a=>a.reduce((s,r)=>s+r.E,0),SR=a=>a.reduce((s,r)=>s+r.R,0);
-    const jm=moda(rs.map(juego)),tip=med(rs.map(r=>(r.R+(r.Rsp||0))/(r.cant||1))),E=SE(rs),R=SR(rs),v=vp(R,E);
-    const V={};rs.forEach(r=>(V[r.modelo]||(V[r.modelo]=[])).push(r));
-    const vars=Object.entries(V).map(([c,a])=>{const mu=mueb(a),e=SE(a),rr=SR(a),j=moda(a.map(juego)),m2=(rr+a.reduce((t,r)=>t+(r.Rsp||0),0))/mu,dv=tip?(m2-tip)/tip*100:0;
-      const mot=[];if(Object.keys(V).length>1){if(j!==jm)mot.push(`usa ${j}; el modelo usa ${jm}`);if(Math.abs(dv)>tolv)mot.push(`m² por mueble ${dv>0?'+':''}${dv.toFixed(1)} % vs el modelo`)}
-      return{c,n:a.length,mu,E:e,R:rr,j,m2,esp:e/mu,v:vp(rr,e),dv,fuera:mot.length>0,mot,ult:Math.max(...a.map(r=>r.ts))}}).sort((a,b)=>b.fuera-a.fuera||Math.abs(b.R-b.E)-Math.abs(a.R-a.E));
+    // v5.16: los números del grupo salen de los modelos de línea; los folios (personalizados) van aparte y no los mueven.
+    const lin=rs.filter(r=>clase(r.modelo)!=='Folio'),fol=rs.filter(r=>clase(r.modelo)==='Folio'),base=lin.length?lin:fol;
+    const jm=moda(base.map(juego)),tip=med(base.map(r=>(r.R+(r.Rsp||0))/(r.cant||1))),E=SE(base),R=SR(base),v=vp(R,E);
+    const vari=(arr,esFol)=>{const V={};arr.forEach(r=>(V[r.modelo]||(V[r.modelo]=[])).push(r));const nv=Object.keys(V).length;
+      return Object.entries(V).map(([c,a])=>{const mu=mueb(a),e=SE(a),rr=SR(a),j=moda(a.map(juego)),m2=(rr+a.reduce((t,r)=>t+(r.Rsp||0),0))/mu,dv=tip?(m2-tip)/tip*100:0;
+        const mot=[];if(!esFol&&nv>1){if(j!==jm)mot.push(`usa ${j}; el grupo usa ${jm}`);if(Math.abs(dv)>tolv)mot.push(`m² por mueble ${dv>0?'+':''}${dv.toFixed(1)} % vs el grupo`)}
+        return{c,n:a.length,mu,E:e,R:rr,j,m2,esp:e/mu,v:vp(rr,e),dv,fuera:mot.length>0,mot,fol:esFol}}).sort((a,b)=>b.fuera-a.fuera||Math.abs(b.R-b.E)-Math.abs(a.R-a.E))};
+    const vars=vari(lin,false),fvars=vari(fol,true);
     const nf=vars.filter(x=>x.fuera).length,stm=v==null?'Sin datos':Math.abs(v)<=tolv?'OK':v>0?'Usó más':'Usó menos';
-    return{k,rs,n:rs.length,vars,nf,jm,tip,E,R,v,stm,rev:nf>0||stm==='Usó más'||stm==='Usó menos'};
+    const cods=[...new Set(rs.map(r=>r.modelo))],conR=cods.find(c=>rutaDe(c)===k),sinRuta=!conR&&!(cfg.modelosExc||{})[String(cods[0]).toUpperCase()];
+    const desc=conR?moda(Object.values(cfg.rutas||{}).filter(x=>String(x.r).toUpperCase()===k&&x.d).map(x=>x.d)):'';   // la descripción más común de la ruta
+    return{k,rs,n:rs.length,nl:lin.length,vars,fvars,nf,jm,tip,E,R,v,stm,desc,sinRuta,rev:nf>0||stm==='Usó más'||stm==='Usó menos'};
   }).sort((a,b)=>b.rev-a.rev||b.nf-a.nf||Math.abs(b.R-b.E)-Math.abs(a.R-a.E));
   return{lista:out,revisar:out.filter(m=>m.nf).length,fuera:out.reduce((s,m)=>s+m.nf,0),aRev:out.filter(m=>m.rev).length};
 }
+// Códigos de muebles (capturas y OP cargadas) que todavía no tienen Nº ruta ni excepción manual.
+function sinRuta(){const ex=cfg.modelosExc||{},S=new Set();
+  vis().filter(r=>r.kind==='op').forEach(r=>S.add(String(r.modelo).trim().toUpperCase()));
+  Object.values(cat).filter(o=>!excluida(o.op)).forEach(o=>S.add(String(o.modelo).trim().toUpperCase()));
+  return[...S].filter(c=>c&&!rutaDe(c)&&!ex[c]).sort()}
+function rutasInfo(){const n=Object.keys(cfg.rutas||{}).length,sr=sinRuta();
+  $('#mrinfo').textContent=n?`${n} código(s) con ruta`+(sr.length?` · ${sr.length} sin ruta`:''):'sin cargar';
+  $('#msinruta').innerHTML=sr.length?`<p class="mut" style="margin:0 0 4px"><b>Sin ruta (${sr.length})</b>: se agrupan con las reglas provisionales hasta que cargues un Excel donde aparezcan.</p><div class="mut">${sr.map(esc).join(', ')}</div>`:(n?'<p class="mut" style="margin:0">Todos los códigos capturados y cargados tienen ruta.</p>':'')}
 function modelosView(){
-  weeks();const L=filt(),M=modelosCalc(L),solo=$('#mrev').checked,lst=solo?M.lista.filter(m=>m.rev):M.lista;
-  $('#dsum').innerHTML=`${cnt(L)}: ${M.lista.length} modelo(s) principal(es) con OP completas`;
-  $('#mkpi').innerHTML=K('Modelos principales',M.lista.length)+K('Requieren revisión',M.aRev,M.aRev?'pos':'')+K('Variantes fuera del patrón',M.fuera,M.fuera?'pos':'','en '+M.revisar+' modelo(s)');
+  weeks();const L0=filt(),L=L0.filter(r=>!esVpc(r)),nv=L0.length-L.length,M=modelosCalc(L),solo=$('#mrev').checked,lst=solo?M.lista.filter(m=>m.rev):M.lista;   // varias piezas por caja: fuera, igual que en Análisis
+  $('#dsum').innerHTML=`${cnt(L0)}: ${M.lista.length} grupo(s) con OP completas`+(nv?` · ${nv} OP de «Varias piezas por caja» no se incluyen`:'');
+  $('#mkpi').innerHTML=K('Grupos (rutas)',M.lista.length)+K('Requieren revisión',M.aRev,M.aRev?'pos':'')+K('Variantes fuera del patrón',M.fuera,M.fuera?'pos':'','en '+M.revisar+' grupo(s)');
   const chip=st=>`<span class="chip st st-${st==='OK'?'ok':st==='Sin datos'?'sinop':'cons'}">${st}</span>`;
-  $('#mlista').innerHTML=lst.length?lst.map(m=>`<details class="card mdl"${m.nf?' open':''}><summary><b>${esc(m.k)}</b> <span class="mut">· ${m.vars.length} variante(s) · ${m.n} OP · cartón habitual ${esc(m.jm)} · ${fmt(m.tip)} m²/mueble</span><br>
-    ${chip(m.stm)} <span class="mut">vs esperado ${pct(m.R,m.E)} (${sgm(m.R-m.E)} m²)</span>${m.nf?` <span class="chip bad">${m.nf} variante(s) fuera del patrón</span>`:''}</summary>
-    <div class="scroll"><table><thead><tr><th>Variante</th><th>OP</th><th>Cartón usado</th><th>m²/mueble real</th><th>vs esperado</th><th>Patrón</th></tr></thead><tbody>
-    ${m.vars.map(x=>`<tr${x.fuera?' class="fx"':''}><td><b>${esc(x.c)}</b></td><td>${x.n}${x.n===1?' <span class="mut">(1 registro)</span>':''}</td><td>${esc(x.j)}</td><td>${fmt(x.m2)} <span class="mut">(esp. ${fmt(x.esp)})</span></td><td>${pct(x.R,x.E)}</td><td>${x.fuera?`<span class="chip st st-${x.j!==m.jm?'camb':'cons'}">Fuera del patrón</span><br><span class="mut">${esc(x.mot.join(' · '))}</span>`:m.vars.length>1?'<span class="chip st st-ok">En patrón</span>':'<span class="mut">única variante</span>'}</td></tr>`).join('')}
-    </tbody></table></div></details>`).join(''):`<div class="card mut">${solo?'Ningún modelo requiere revisión con estos filtros. Desmarca «Solo los que requieren revisión» para ver todos.':'No hay OP completas con estos filtros.'}</div>`;
-  $('#mreglas').textContent=AGRUPACION.nombre;$('#mexc').value=Object.entries(cfg.modelosExc||{}).map(([k,v])=>k+' = '+v).join('\n');
+  const fila=(x,m)=>`<tr${x.fuera?' class="fx"':''}><td><b>${esc(x.c)}</b>${x.fol?' <span class="chip na">Folio</span>':''}</td><td>${x.n}${x.n===1?' <span class="mut">(1 registro)</span>':''}</td><td>${esc(x.j)}</td><td>${fmt(x.m2)} <span class="mut">(esp. ${fmt(x.esp)})</span></td><td>${pct(x.R,x.E)}</td><td>${x.fol?(m.nl?`<span class="mut">${x.j===m.jm?'mismo cartón':'otro cartón'} · ${x.dv>0?'+':''}${x.dv.toFixed(1)} % vs el grupo</span>`:'<span class="mut">—</span>'):x.fuera?`<span class="chip st st-${x.j!==m.jm?'camb':'cons'}">Fuera del patrón</span><br><span class="mut">${esc(x.mot.join(' · '))}</span>`:m.vars.length>1?'<span class="chip st st-ok">En patrón</span>':'<span class="mut">única variante</span>'}</td></tr>`;
+  const tabla=(t,arr,m)=>arr.length?`${t}<div class="scroll"><table><thead><tr><th>Código</th><th>OP</th><th>Cartón usado</th><th>m²/mueble real</th><th>vs esperado</th><th>Patrón</th></tr></thead><tbody>${arr.map(x=>fila(x,m)).join('')}</tbody></table></div>`:'';
+  $('#mlista').innerHTML=lst.length?lst.map(m=>`<details class="card mdl"${m.nf?' open':''}><summary><b>${m.sinRuta?esc(m.k):'Ruta '+esc(m.k)}</b>${m.desc?` <span class="mut">· ${esc(m.desc)}</span>`:''}${m.sinRuta?' <span class="chip pend">Sin ruta</span>':''}<br><span class="mut">${[m.vars.length?m.vars.length+' código(s) de línea':'',m.fvars.length?m.fvars.length+' folio(s)':''].filter(Boolean).join(' · ')} · ${m.n} OP · cartón habitual ${esc(m.jm)} · ${fmt(m.tip)} m²/mueble</span><br>
+    ${chip(m.stm)} <span class="mut">vs esperado ${pct(m.R,m.E)} (${sgm(m.R-m.E)} m²)${m.nl?'':' · solo folios'}</span>${m.nf?` <span class="chip bad">${m.nf} variante(s) fuera del patrón</span>`:''}</summary>
+    ${tabla('',m.vars,m)}${tabla(m.vars.length?'<p class="mut" style="margin:10px 0 4px"><b>Folios</b> (aparte: no cuentan en los números del grupo)</p>':'',m.fvars,m)}</details>`).join(''):`<div class="card mut">${solo?'Ningún grupo requiere revisión con estos filtros. Desmarca «Solo los que requieren revisión» para ver todos.':'No hay OP completas con estos filtros.'}</div>`;
+  $('#mexc').value=Object.entries(cfg.modelosExc||{}).map(([k,v])=>k+' = '+v).join('\n');rutasInfo();
 }
+// Carga de rutas (v5.16): Excel «Órdenes producción lanzadas». Agrega/actualiza; nunca borra. Relee la config antes de escribir.
+const hnorm=h=>String(h).normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]/g,'');
+function leerRutas(rows){const M={},conf=new Set();let sin=0;
+  if(!rows.length)return{error:'El archivo no tiene renglones.'};
+  const ks=Object.keys(rows[0]),kc=ks.find(k=>hnorm(k)==='codprocedenciamov'),kr=ks.find(k=>hnorm(k)==='nruta'),kd=ks.find(k=>hnorm(k)==='descripcion');
+  if(!kc||!kr)return{error:'No encontré las columnas «Cód. procedencia mov.» y «Nº ruta». ¿Es el Excel «Órdenes producción lanzadas»?'};
+  rows.forEach(w=>{const c=String(w[kc]).trim().toUpperCase(),r=String(w[kr]).trim().toUpperCase();if(!c||!r){sin++;return}
+    if(M[c]&&M[c].r!==r)conf.add(c);else if(!M[c])M[c]={r,d:kd?String(w[kd]).trim().slice(0,80):''}});
+  conf.forEach(c=>delete M[c]);return{M,conf:[...conf],sin}}
+$('#mrfile').onchange=async e=>{const f=e.target.files[0];if(!f)return;const msg=$('#mrmsg');msg.style.color='';msg.textContent='Leyendo…';
+  try{const wb=XLSX.read(await f.arrayBuffer(),{type:'array'}),x=leerRutas(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:''}));
+    if(x.error){msg.textContent=x.error;msg.style.color='var(--bad)';return}
+    const st=await DB.getSettings(),R0={...(st.rutas||{})};let nu=0,ca=0,ig=0;const cam=[];
+    Object.entries(x.M).forEach(([c,v])=>{const p=R0[c];if(!p)nu++;else if(p.r!==v.r){ca++;cam.push(`${c}: ${p.r} → ${v.r}`)}else ig++;R0[c]=v});
+    await DB.saveSettings({rutas:R0});cfg.rutas=R0;
+    msg.innerHTML=`✓ ${nu} código(s) nuevo(s) · ${ca} con ruta actualizada · ${ig} sin cambios.`+(cam.length?`<br>Cambiaron de ruta: ${cam.slice(0,10).map(esc).join('; ')}${cam.length>10?'…':''}`:'')+
+      (x.conf.length?`<br><span style="color:var(--bad)">⚠ No se cargaron ${x.conf.length} código(s) que aparecen con dos rutas distintas en el archivo: ${x.conf.map(esc).join(', ')}. Revísalos en Dynamics o ponlos en Excepciones.</span>`:'');
+    refresh()}catch(x){dbErr(x,'No se pudieron cargar las rutas')}finally{e.target.value=''}};
 $('#mrev').onchange=()=>modelosView();
 $('#msave').onclick=async()=>{const P={},bad=[];$('#mexc').value.split('\n').map(x=>x.trim()).filter(Boolean).forEach(l=>{const m=l.match(/^(\S+)\s*=\s*(\S.*)$/);if(m)P[m[1].toUpperCase()]=m[2].trim().toUpperCase();else bad.push(l)});
   if(bad.length){$('#mmsg').textContent='Revisa el formato «CÓDIGO = MODELO PRINCIPAL» en: '+bad.join(' | ');$('#mmsg').style.color='var(--bad)';return}
@@ -982,7 +1023,7 @@ $('#xbtn').onclick=()=>{
   const L=filt();if(!L.length){alert('No hay registros con el filtro actual.');return}
   const s=summ(L),M=modelosCalc(L),op=r=>r.kind==='op',Y=r=>r.mismo===null?'N/A':r.mismo?'Sí':'No',V=(R,E)=>{const v=vp(R,E);return v==null?'':r3(v)};
   const dbl=r=>esDoble(r)?(r.rev?'Revisada':'Pendiente de revisión'):'';
-  const A=L.map(r=>{const e=est(r);return{'Tipo de registro':KINDS[r.kind],'OP':r.op,'Modelo':r.modelo,'Modelo principal (provisional)':modeloPrincipal(r.modelo),'Tipo de modelo':clase(r.modelo),'Estado':e.t,'Causa principal':e.c,
+  const A=L.map(r=>{const e=est(r);return{'Tipo de registro':KINDS[r.kind],'OP':r.op,'Modelo':r.modelo,'Modelo base (Nº ruta)':modeloPrincipal(r.modelo)+(rutaDe(r.modelo)?'':' (sin ruta)'),'Tipo de modelo':clase(r.modelo),'Estado':e.t,'Causa principal':e.c,
     'Cartón programado':op(r)?cartP(r):'','Cartón utilizado':cartU(r),'Coincidencia de cartón':op(r)&&isA(r)?COIN[coin(r)]:'','Consumo esperado (m²)':op(r)?r3(r.E):'','Consumo real (m²)':r3(r.R+(r.Rsp||0)),'Consumo sin programar (m²)':op(r)?r3(r.Rsp||0):'','Programación ERP':op(r)?progTxt(r):'','Seguimiento ERP':est(r).k==='sinprog'?SEG[segEstado(r.modelo,r.ts)]:'','Diferencia total (m²)':op(r)?r3(r.diff):'','Variación %':op(r)?V(r.R,r.E):'',
     'Diferencia por mueble (m²)':op(r)?r3(r.dm):'','Diferencia absoluta (m²)':op(r)?r3(r.abs):'','Cajas esperadas (Cant)':op(r)?r.ce:'','Cajas capturadas':r.cr,'Mismo tipo de cartón':Y(r),
     'Semana (registro)':r.semana,'Fecha de registro':ymd(new Date(r.ts)),'Vencimiento OP':r.venc||'','Tipo de OP':op(r)?tipoReg(r):'','Estado ERP':r.estadoERP,

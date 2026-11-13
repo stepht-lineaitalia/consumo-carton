@@ -23,7 +23,7 @@ async function tab(n){verModulo('carton');if(n!==1&&!document.body.classList.con
   $('#flt').classList.toggle('hide',n===1);$('#ddetw').classList.toggle('hide',n!==2);
   if(n!==1){await reload();if(cur!==n)return}
   if(n===2)board();if(n===3)analysis();if(n===4)modelosView();if(n===1)misHoy()}
-// Pestañas ocultas a petición del negocio (el código se conserva para reactivarlas): Cartón → Modelos (tab 4) y Hojas single → Análisis.
+// Pestaña oculta a petición del negocio (el código se conserva para reactivarla): Hojas single → Análisis. Cartón → Modelos volvió en v5.16 (agrupación por Nº ruta).
 $('#t1').onclick=()=>tab(1);$('#t2').onclick=()=>tab(2);$('#t3').onclick=()=>tab(3);$('#t4').onclick=()=>tab(4);
 /* ==== SESIÓN, ROLES Y OPERADOR ====
    Modo local: «Modo admin» con contraseña en el navegador (como en 4.x).
@@ -64,7 +64,7 @@ $('#saveopr').onclick=async()=>{const L=[...new Set($('#oprcfg').value.split('\n
 async function cargarApp(){
   aplicarRol();stat('Cargando datos…');
   try{const [st,c,r,o]=await Promise.all([DB.getSettings(),DB.getCatalog(),DB.listReports(),DB.listOperadores(),alertasLeer()]);
-    tolv=st.tol;cfg={tol:st.tol,cartones:st.cartones||cfg.cartones,prefijos:st.prefijos||cfg.prefijos,excluir:st.excluir||cfg.excluir,modelosExc:st.modelosExc||cfg.modelosExc,vpc:st.vpc||cfg.vpc||[],seguimiento:st.seguimiento||{},respaldo:st.respaldo||null};cat=c;reports=r;operadores=o||[];stat('')}
+    tolv=st.tol;cfg={tol:st.tol,cartones:st.cartones||cfg.cartones,prefijos:st.prefijos||cfg.prefijos,excluir:st.excluir||cfg.excluir,modelosExc:st.modelosExc||cfg.modelosExc,vpc:st.vpc||cfg.vpc||[],rutas:st.rutas||{},seguimiento:st.seguimiento||{},respaldo:st.respaldo||null};cat=c;reports=r;operadores=o||[];stat('')}
   catch(e){dbErr(e,'No se pudieron cargar los datos')}
   $('#tol').value=tolv;$('#oprcfg').value=operadores.join('\n');showRespaldo();showCat();showCfg();showOperador();misHoy();
   DB.onChange(async()=>{await reload();if(cur!==1)refresh();else misHoy()});
