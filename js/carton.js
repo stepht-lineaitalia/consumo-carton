@@ -642,7 +642,7 @@ function cajasTxt(r){const P=r.per||[],S=f=>P.filter(f).reduce((s,p)=>s+p.cr,0),
   if(!P.some(pg))return`${cS||r.cr} <span class="c-sinprog">(sin programar)</span>`;
   if(cX&&coin(r)==='cambio')return r.ce+' → '+(cE+cX)+' <span class="mut">(cambio de cartón)</span>'+sp;
   return r.ce+' → '+cE+(cX?` <b>+ ${cX} extra</b>`:'')+sp}
-let cur=1,lim=100;const refresh=()=>cur===3?analysis():cur===4?modelosView():board();
+let cur=1,lim=100;const refresh=()=>cur===3?analysis():cur===4&&veModelos()?modelosView():board();
 // «Corregido» (marca de administración en el Tablero, columna visible solo con Detalle): para registros que no son
 // «Correcto». No cambia estados ni indicadores; solo reduce las alertas pendientes (sección 3) y alimenta el filtro.
 const porCorregir=r=>{const c=est(r).cls;return(c==='bad'||c==='pend')&&!esExcep(r)};
@@ -897,14 +897,14 @@ function analysis(){
     <tbody>${s.cruce.map(fila).join('')}${s.cruce.length>1?fila(T).replace('<tr>','<tr class="tt">'):''}</tbody></table></div>
     <p class="mut">«Correctas» = dentro de tolerancia. Cada OP cuenta en una sola columna según su cartón: mismo que el programado, cambio de cartón o con caja extra.</p>`;
   // 5 · Por modelo · 6 · Por tipo de cartón
-  const r5=`${lg2}${hbars(s.modelo.slice(0,8))}<p class="mut">Los ${Math.min(8,s.modelo.length)} códigos con mayor diferencia absoluta de ${s.modelo.length}. Lista completa en «Exportar Excel»; por modelo principal y variantes en la pestaña <b>Modelos</b>.</p>`;
+  const r5=`${lg2}${hbars(s.modelo.slice(0,8))}<p class="mut">Los ${Math.min(8,s.modelo.length)} códigos con mayor diferencia absoluta de ${s.modelo.length}. Lista completa en «Exportar Excel»${veModelos()?'; por modelo principal y variantes en la pestaña <b>Modelos</b>':''}.</p>`;
   const r6=`${lg2}${hbars(s.carton)}`;
   const mas=`<details class="card"><summary><b>Más desgloses</b> <span class="mut">(tipo de OP, Folio vs Línea, inclusiones por modelo)</span></summary>
     <h3>Por tipo de OP</h3>${lg2}${hbars(s.tipoOp)}<h3>Folio vs Línea</h3>${lg1}${gbars(s.clase)}
     <h3>Inclusiones por modelo (m² reales)</h3>${s.modInc.length?s.modInc.slice(0,12).map(x=>`<div class="line"><b>${fmt(x.R)} m²</b> · ${esc(x.k)} <span class="mut">(${x.n} reg.)</span></div>`).join(''):'<p class="mut">Sin inclusiones.</p>'}</details>`;
   $('#ana').innerHTML=SEC(1,'Resumen ejecutivo'+selSem,r1)+SEC(2,'Indicadores principales',r2)+SEC(3,'Alertas importantes',r3)+
     (s.B.length?SEC(4,'Consumo esperado vs real por semana',r4)+SEC(5,'Por día de la semana',porDia(s.B,resSem==='*'?'':resSem),'sdia')+SEC(6,'Diferencias por modelo',r5)+SEC(7,'Diferencias por tipo de cartón',r6):'')+mas+motivosCambio(s.B)+
-    `<p class="mut">8 · Seguimiento de modelos → pestaña <b>Modelos</b> · 9 · Detalle completo → pestaña <b>Tablero</b></p>`;
+    (veModelos()?`<p class="mut">8 · Seguimiento de modelos → pestaña <b>Modelos</b> · 9 · Detalle completo → pestaña <b>Tablero</b></p>`:`<p class="mut">8 · Detalle completo → pestaña <b>Tablero</b></p>`);
   const ds=$('#dsem');if(ds)ds.onchange=()=>{diaSem=ds.value;const y=window.scrollY;analysis();try{window.scrollTo(0,y)}catch(x){}};
 }
 // «Ver» en una alerta: conserva el periodo filtrado y abre la pestaña donde se revisa, ya filtrada.
@@ -999,7 +999,7 @@ function ask(mode){return new Promise(res=>{
 $('#adm').onchange=async e=>{const on=e.target.checked;
   if(on){let ok=false;try{ok=await ask((await DB.getAuth())?'login':'create')}catch(x){alert('Este navegador no permite el login (abre el archivo desde https o localhost).')}
     if(!ok){e.target.checked=false;return}}
-  document.body.classList.toggle('admin',on);if(!on)tab(1)};
+  document.body.classList.toggle('admin',on);document.body.classList.toggle('vmod',veModelos());if(!on)tab(1)};
 $('#cpw').onclick=()=>ask('create');
 $('#dsum').addEventListener('click',e=>{if(e.target.id!=='vdoble')return;e.preventDefault();$('#fs').value=$('#fs').value==='doble'?'':'doble';lim=100;refresh()});
 $('#dbody').onclick=async e=>{
@@ -1051,7 +1051,7 @@ $('#xbtn').onclick=()=>{
   XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(A),'Reporte');
   XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(D),'Desglose por OP');
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(RS),'Resumen');
-  XLSX.utils.book_append_sheet(wb,MO.length?XLSX.utils.json_to_sheet(MO):XLSX.utils.aoa_to_sheet([['Sin OP completas']]),'Modelos');
+  if(veModelos())XLSX.utils.book_append_sheet(wb,MO.length?XLSX.utils.json_to_sheet(MO):XLSX.utils.aoa_to_sheet([['Sin OP completas']]),'Modelos');
   XLSX.writeFile(wb,'consumo-carton-'+ymd(new Date())+'.xlsx');
 };
 // ==== Excel «formato registro» (TEMPORAL) ====  Solo valores (sin fórmulas), un renglón por CARTÓN (valores individuales,

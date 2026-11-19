@@ -17,7 +17,7 @@
 <!-- Menú de Administración (no lo ve Planta): módulos Cartón, Hojas single y Comparativo de consumos. Ver irModulo() en js/app.js -->
 <nav id="side" class="adm" aria-label="Módulos">
 <div class="mod"><button class="mh on" data-mod="carton" type="button">Cartón</button>
-<div class="subm" id="subcarton"><button id="t1" class="on w" type="button">Captura</button><button id="t3" type="button">Análisis</button><button id="t4" type="button">Modelos</button><button id="t2" type="button">Tablero</button></div></div>
+<div class="subm" id="subcarton"><button id="t1" class="on w" type="button">Captura</button><button id="t3" type="button">Análisis</button><button id="t4" class="vmo" type="button">Modelos</button><button id="t2" type="button">Tablero</button></div></div>
 <div class="mod"><button class="mh" data-mod="hojas" type="button">Hojas single</button>
 <div class="subm hide" id="subhojas"><button data-hs="prog" class="on" type="button">Programa</button><button data-hs="cap" class="w" type="button">Captura</button><button data-hs="tab" type="button">Tablero</button><button data-hs="ana" class="hide" type="button">Análisis</button></div></div>
 <div class="mod"><button class="mh" data-mod="ambos" type="button">Comparativo de consumos</button></div>
@@ -93,7 +93,7 @@
 <p class="mut" id="dsum"></p></div>
 <section id="v2" class="hide"><div class="card"><div class="leg" id="leg" aria-label="Leyenda de estados (clic para filtrar)"></div><div class="scroll"><table id="dtable"><thead><tr><th>Fecha</th><th>Modelo / OP</th><th>Estado</th><th>Cartón</th><th class="n">m² esperados</th><th class="n">m² reales</th><th class="n">Diferencia (m²)</th><th>Cajas<br><span class="mut">Cant → capt.</span></th><th class="det">Corrección</th><th class="det">Detalle</th><th class="adm"></th></tr></thead><tbody id="dbody"></tbody></table></div><p><button class="btn ghost sm hide" id="more">Mostrar más</button></p></div></section>
 <section id="v3" class="hide"><div id="ana"></div></section>
-<section id="v4" class="hide">
+<section id="v4" class="hide vmo">
 <section class="card sec"><h2>Modelos por ruta</h2>
 <p class="mut" style="margin-top:0">Cada grupo es un <b>Nº ruta</b> de Dynamics (modelo base): junta sus colores y sus folios. Los números del grupo salen de los modelos de línea; los <b>folios</b> se muestran aparte porque son personalizados. Una variante queda <b>fuera del patrón</b> si usa un cartón distinto al de la mayoría o si sus m² por mueble se alejan más de la tolerancia de lo típico. Solo OP completas del periodo filtrado.</p>
 <div class="kpis" id="mkpi"></div>
