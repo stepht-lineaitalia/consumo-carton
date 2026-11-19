@@ -31,7 +31,7 @@ $('#t1').onclick=()=>tab(1);$('#t2').onclick=()=>tab(2);$('#t3').onclick=()=>tab
      admin → todo · planta → solo Captura · consulta → Análisis, Modelos y Tablero sin poder modificar. */
 const ROL={admin:'Administración',planta:'Planta',consulta:'Consulta'};
 /* ==== PESTAÑA MODELOS: SOLO PARA USUARIOS AUTORIZADOS ====
-   Cartón → Modelos (y cualquier mención a ella) solo la ve quien esté en esta lista. Se guarda la huella SHA-256 del correo
+   Cartón → Modelos (y cualquier mención a ella) y el botón «Excel formato registro (temporal)» solo los ve quien esté en esta lista. Se guarda la huella SHA-256 del correo
    (en minúsculas) para no publicar el correo en el código. Para autorizar a alguien más, agrega la huella de su correo.
    En modo local (sin nube) la ve el «Modo admin». Es una restricción de pantalla: los datos siguen en la misma configuración. */
 const MODELOS_AUT=['5808e4c592044dedb79636aefd1d2df7252ea54a2a4f0e5bd874a9da1b148a41'];

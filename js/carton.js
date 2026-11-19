@@ -1074,7 +1074,7 @@ function filasRegistro(L){const out=[];
       'Mismo tipo de cartón registrado y utilizado':!c?'Pendiente':!b?'CAJA EXTRA':+b.a===+c.a?'SÍ':'NO'});
     P.filter(p=>op&&pg(p)&&p.R>0).forEach(p=>fila(p,p));pares.forEach(([b,c])=>fila(b,c));prog.forEach(p=>fila(p,null));usad.forEach(p=>fila(null,p))});
   return out}
-$('#xreg').onclick=()=>{const L=filt();if(!L.length){alert('No hay registros con el filtro actual.');return}
+$('#xreg').onclick=()=>{if(!veModelos())return;const L=filt();if(!L.length){alert('No hay registros con el filtro actual.');return}
   const F=filasRegistro(L),ws=XLSX.utils.json_to_sheet(F);F.forEach((_,i)=>{const c=ws['A'+(i+2)];if(c)c.z='dd/mm/yyyy'});ws['!cols']=[12,12,14,10,12,8,10,12,12,14].map(w=>({wch:w+4}));
   const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Registro');XLSX.writeFile(wb,'registro-carton-'+ymd(new Date())+'.xlsx')};
 $('#bk').onclick=async()=>{try{reports=await DB.listReports();cat=await DB.getCatalog()}catch(x){dbErr(x,'No se pudo leer para el respaldo');return}
