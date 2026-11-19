@@ -271,13 +271,14 @@ function estRaw(o){
 function estBase(o){
   const P=o.per,U=P.filter(p=>!pg(p)&&p.R>0),X=P.filter(p=>pg(p)&&!p.z&&!p.R),L=a=>a.map(p=>p.a+' cm').join(', ');
   if(!P.some(p=>p.R>0)&&!X.length)return{cls:'ok',k:'ok',t:'Correcto',c:'—'};   // solo consumo sin programar (ya separado)
-  // Sin estado «Incompleto» (v5.17): si falta un cartón programado y no se usó otro, se califica por m² (Diferencia de consumo o Correcto).
-  const ex=U.length&&!X.length,sw=U.length&&X.length,EP=P.filter(p=>p.E&&!p.z),EE=EP.reduce((s,p)=>s+p.E,0),RR=EP.reduce((s,p)=>s+p.R,0);
+  // Sin estado «Incompleto» (v5.17): si un cartón programado no se usó y la OP se completó con más cantidad de OTRO cartón
+  // programado, es un Cambio de cartón (con diferencia de consumo si los m² salen de la tolerancia).
+  const Y=P.filter(p=>pg(p)&&!p.z&&p.R>0),ex=U.length&&!X.length,sw=X.length&&(U.length||Y.length),EP=P.filter(p=>p.E&&!p.z),EE=EP.reduce((s,p)=>s+p.E,0),RR=EP.reduce((s,p)=>s+p.R,0);
   const m=ex?(EE&&Math.abs((RR-EE)/EE*100)>tolv):(o.E&&Math.abs((o.R-o.E)/o.E*100)>tolv);
   const y=t=>m?t+' y diferencia de consumo':t;
   // Caja Extra conserva su color aunque además haya diferencia de consumo (la causa principal es la caja extra).
   if(ex)return{cls:'bad',k:'extra',t:y('Caja Extra'),c:'Cartón no programado: '+L(U)};
-  if(sw)return{cls:'bad',k:m?'cambcons':'camb',t:y('Cambio de cartón'),c:'Programado '+L(X)+' → usado '+L(U)};
+  if(sw)return{cls:'bad',k:m?'cambcons':'camb',t:y('Cambio de cartón'),c:'Programado '+L(X)+' → usado '+L(U.length?U:Y)};
   if(m)return{cls:'bad',k:'cons',t:'Diferencia de consumo',c:'m² fuera de ±'+tolv+'%'};
   return{cls:'ok',k:'ok',t:'Correcto',c:'—'};
 }
