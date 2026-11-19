@@ -234,7 +234,7 @@ let cat={},reports=[],tolv=DEF_CFG.tol,admin=false,W=null,editId=null,saving=fal
 const stat=(m,err)=>{const e=$('#dbstat');e.textContent=m||'';e.style.color=err?'var(--bad)':'';e.classList.toggle('hide',!m)};
 function dbErr(e,ctx){stat('⚠ '+(ctx?ctx+': ':'')+(e&&e.message||e),true);if(e&&e.code==='quota')alert('⚠ No se pudo guardar en este navegador (almacenamiento lleno). Descarga un respaldo (admin) ya.')}
 async function reload(){try{reports=await DB.listReports();return true}catch(e){dbErr(e,'No se pudieron leer los datos');return false}}
-const CH={ok:'Correcto',bad:'Con diferencia',pend:'Incompleto',na:'Sin esperado'};
+const CH={ok:'Correcto',bad:'Con diferencia',na:'Sin esperado'};
 /* ==== ESTADOS (fuente única) ====
    Nombre, nombre corto (leyenda), color y significado de cada estado. La leyenda, las etiquetas, el filtro de Estado,
    las alertas y los colores de Análisis/Modelos salen de esta tabla: agregar, renombrar o recolorear un estado = editar un renglón.
@@ -246,8 +246,7 @@ const ESTADOS=[
   {k:'cambcons',t:'Cambio de cartón y diferencia de consumo',   s:'Cartón + m²',   d:'Ni el cartón ni los m² coinciden'},
   {k:'extra',   t:'Caja Extra',                                 s:'Caja Extra',    d:'Además del programado se usó un cartón no programado (puede incluir diferencia de consumo)'},
   {k:'sinprog', t:'Sin programar',                              s:'Sin programar', d:'Consumo real de cartón sin m² programados en el ERP (cartón en 0 m² u OP sin cartón): revisar la programación en Dynamics'},
-  {k:'sinop',   t:'Sin OP',                                     s:'Sin OP',        d:'Inclusión o Caja de Ingeniería: consumo sin OP ni esperado'},
-  {k:'pend',    t:'Incompleto',                                 s:'Incompleto',    d:'Falta capturar un cartón programado'}];
+  {k:'sinop',   t:'Sin OP',                                     s:'Sin OP',        d:'Inclusión o Caja de Ingeniería: consumo sin OP ni esperado'}];
 const EST=Object.fromEntries(ESTADOS.map(x=>[x.k,x]));
 const chipE=(e,txt)=>`<span class="chip st st-${e.k}" title="${esc((EST[e.k]||{}).d||'')}">${esc(txt==null?e.t:txt)}</span>`;
 /* Estados (ROADMAP «Reglas de negocio»):
@@ -272,7 +271,7 @@ function estRaw(o){
 function estBase(o){
   const P=o.per,U=P.filter(p=>!pg(p)&&p.R>0),X=P.filter(p=>pg(p)&&!p.z&&!p.R),L=a=>a.map(p=>p.a+' cm').join(', ');
   if(!P.some(p=>p.R>0)&&!X.length)return{cls:'ok',k:'ok',t:'Correcto',c:'—'};   // solo consumo sin programar (ya separado)
-  if(X.length&&!U.length)return{cls:'pend',k:'pend',t:'Registro incompleto',c:'Falta capturar '+L(X)};
+  // Sin estado «Incompleto» (v5.17): si falta un cartón programado y no se usó otro, se califica por m² (Diferencia de consumo o Correcto).
   const ex=U.length&&!X.length,sw=U.length&&X.length,EP=P.filter(p=>p.E&&!p.z),EE=EP.reduce((s,p)=>s+p.E,0),RR=EP.reduce((s,p)=>s+p.R,0);
   const m=ex?(EE&&Math.abs((RR-EE)/EE*100)>tolv):(o.E&&Math.abs((o.R-o.E)/o.E*100)>tolv);
   const y=t=>m?t+' y diferencia de consumo':t;
@@ -481,7 +480,7 @@ function calc(){
   const per=A.map(a=>{
     const x=ex[a],E=x?x.val:0,R=re[a]||0,cr=nlA[a]||0,z=W.kind==='op'&&!!x&&!(E>0);
     const sp=W.kind==='op'&&R>0&&!(E>0)&&(z||!conM2),spm=!sp?undefined:z?'cero':W.rows.length?'otro':'sinop';
-    const st=W.kind!=='op'?'na':sp?'sinprog':z?'zero':(E&&!R)?'pend':!E?'bad':Math.abs((R-E)/E*100)<=tolv?'ok':'bad';
+    const st=W.kind!=='op'?'na':sp?'sinprog':z?'zero':!E?'bad':Math.abs((R-E)/E*100)<=tolv?'ok':'bad';
     return{a,E,R,diff:R-E,cr,ce:x?W.cant:0,st,prog:!!x,z,...(sp?{sp,spm}:{})};
   });
   return{per,...totales(per,W.kind,W.cant)};
@@ -567,7 +566,7 @@ function misHoy(){
 }
 
 // Tablero, análisis y exportación  (ADMINISTRACIÓN = INFORMACIÓN ORDENADA)
-const isA=r=>{const c=est(r).cls;return r.kind==='op'&&c!=='pend'&&c!=='err'};
+const isA=r=>{const c=est(r).cls;return r.kind==='op'&&c!=='err'};
 const grp=(L,fn)=>{const m={};L.forEach(r=>fn(r).forEach(([k,e,rl,d])=>{const o=m[k]||(m[k]={k,E:0,R:0,P:0,N:0,n:0});o.E+=e;o.R+=rl;o.P+=Math.max(d,0);o.N+=Math.min(d,0);o.n++}));return Object.values(m).sort((a,b)=>(b.P-b.N)-(a.P-a.N))};
 // Coincidencia de cartón de una OP: mismo cartón / cambio de cartón / caja extra
 const COIN={mismo:'Mismo cartón',cambio:'Cambio de cartón',extra:'Caja Extra'};
@@ -580,7 +579,7 @@ function summ(L){
     const c=w[coin(r)];c.n++;c.E+=r.E;c.R+=r.R;c.A+=Math.abs(r.diff);w.n++;w.E+=r.E;w.R+=r.R;w.A+=Math.abs(r.diff);if(est(r).cls==='ok')w.ok++});
   const tot={k:'Total',n:0,ok:0,E:0,R:0,A:0};['mismo','cambio','extra'].forEach(c=>tot[c]={n:0,E:0,R:0,A:0});
   Object.values(cx).forEach(w=>{['n','ok','E','R','A'].forEach(k=>tot[k]+=w[k]);['mismo','cambio','extra'].forEach(c=>['n','E','R','A'].forEach(k=>tot[c][k]+=w[c][k]))});
-  return{B,inc:L.filter(r=>est(r).cls==='pend'),sn,incl:sn.filter(r=>r.kind==='inc'),ingr:sn.filter(r=>r.kind==='ing'),E:S('E'),R:S('R'),AC:S('abs'),
+  return{B,sn,incl:sn.filter(r=>r.kind==='inc'),ingr:sn.filter(r=>r.kind==='ing'),E:S('E'),R:S('R'),AC:S('abs'),
     ok:B.filter(r=>est(r).cls==='ok').length,
     Rsp:L.filter(r=>r.kind==='op').reduce((t,r)=>t+(r.Rsp||0),0),sp:L.filter(r=>r.kind==='op'&&est(r).k==='sinprog'),
     Rtot:SR(L.filter(r=>r.kind!=='op'||isA(r)))+L.filter(r=>r.kind==='op'&&isA(r)).reduce((t,r)=>t+(r.Rsp||0),0),Rinc:SR(sn.filter(r=>r.kind==='inc')),Ring:SR(sn.filter(r=>r.kind==='ing')),
@@ -645,7 +644,7 @@ function cajasTxt(r){const P=r.per||[],S=f=>P.filter(f).reduce((s,p)=>s+p.cr,0),
 let cur=1,lim=100;const refresh=()=>cur===3?analysis():cur===4&&veModelos()?modelosView():board();
 // «Corregido» (marca de administración en el Tablero, columna visible solo con Detalle): para registros que no son
 // «Correcto». No cambia estados ni indicadores; solo reduce las alertas pendientes (sección 3) y alimenta el filtro.
-const porCorregir=r=>{const c=est(r).cls;return(c==='bad'||c==='pend')&&!esExcep(r)};
+const porCorregir=r=>{const c=est(r).cls;return c==='bad'&&!esExcep(r)};
 function celdaCorr(r){if(!porCorregir(r))return'';
   if(r.corr)return`<span class="chip ok">✓ Corregido</span><br><span class="mut">${esc(r.corr.por||'')} · ${dmy(r.corr.ts)}</span><br><a href="#" class="adm w" data-uncorr="${r.id}">Deshacer</a>`;
   return`<button class="btn ghost sm adm w" data-corr="${r.id}" type="button">Marcar corregido</button>`}
@@ -744,7 +743,6 @@ function alertas(L,s,M){
   alC('st-cambcons',nk('cambcons'),n=>`${n} OP con cambio de cartón y diferencia de consumo`,'.','2|cambcons');
   alC('st-extra',nk('extra'),n=>`${n} OP con Caja Extra`,'.','2|extra');
   alC('st-camb',nk('camb'),n=>`${n} OP con cambio de cartón`,' (m² dentro de tolerancia).','2|camb');
-  alC('st-pend',s.inc,n=>`${n} registro(s) incompleto(s)`,': falta capturar un cartón programado.','2|pend');
   const ot=L.filter(r=>r.kind==='op'&&opDesconocida(r.op)).length;if(ot)A.push(['st-pend',`<b>${ot} registro(s) con tipo de OP no reconocido.</b>`,'2|q:otro (']);
   const cf=L.filter(r=>r.conf12).length;if(cf)A.push(['st-sinop',`${cf} captura(s) donde el operador confirmó 1 o 2 cartones con un resultado cercano al doble o a la mitad.`,'']);
   return A;
@@ -847,7 +845,7 @@ function porDia(B,fija){
   const tb=`<div class="scroll"><table class="tc"><thead><tr><th>Día</th><th>OP</th><th>Fuera de tolerancia</th><th>Cambios de cartón</th><th>Caja Extra</th><th>Dif. neta (m²)</th><th>Dif. absoluta (m²)</th></tr></thead><tbody>${
     D.map(x=>{const b=v=>top&&x===top?`<b>${v}</b>`:v;return`<tr><td>${b(x.k+' '+x.f)}</td><td>${x.n}</td><td>${x.ft}</td><td>${x.cb}</td><td>${x.ex}</td><td>${b(x.n?sgm(x.net):'—')}</td><td>${b(x.n?fmt(x.abs):'—')}</td></tr>`}).join('')}</tbody></table></div>`;
   return`${sel}<p style="margin:10px 0">${con}</p><p class="mut"><i class="sw" style="background:var(--warn)"></i> Diferencia absoluta del día (m²)</p>${bars}${tb}
-    <p class="mut">Día = fecha de captura. Solo OP del comparativo (sin incompletos ni consumos sin OP).</p>`;
+    <p class="mut">Día = fecha de captura. Solo OP del comparativo (sin consumos sin OP).</p>`;
 }
 // ==== Motivo de los cambios de cartón (al final del Análisis): no cambia ningún indicador ====
 function motivosCambio(B){
@@ -870,7 +868,7 @@ function analysis(){
   const L=resSem==='*'?LT:LT.filter(r=>r.semana===resSem),XV=LT0.filter(r=>esVpc(r)&&(resSem==='*'||r.semana===resSem)),s=summ(L),sT=summ(LT),M=modelosCalc(L),net=s.P+s.N,abs=s.P-s.N,comp=abs?(abs-Math.abs(net))/abs*100:0;
   const fSem=w=>{const l=lunesDe(w);if(!l)return w;const v=new Date(l);v.setDate(v.getDate()+4);return dmy(l)+' – '+dmy(v)};
   const selSem=`<select id="ressem" class="ressel" title="Semana que se analiza en toda la página"><option value="*"${resSem==='*'?' selected':''}>Global</option>${SW.map(w=>`<option value="${w}"${w===resSem?' selected':''}>${esc(fSem(w))}</option>`).join('')}</select>`;
-  $('#dsum').innerHTML=`${cnt(L)}: ${s.B.length} OP analizadas · ${s.inc.length} incompletos · ${s.incl.length} inclusiones · ${s.ingr.length} de ingeniería`;
+  $('#dsum').innerHTML=`${cnt(L)}: ${s.B.length} OP analizadas · ${s.incl.length} inclusiones · ${s.ingr.length} de ingeniería`;
   if(!s.B.length&&!s.sn.length){$('#ana').innerHTML=(SW.length?SEC(1,'Resumen ejecutivo'+selSem,''):'')+'<div class="card mut">No hay registros con estos filtros para analizar.</div>';return}
   const lg1='<p class="mut"><i class="sw e"></i> Esperado &nbsp;<i class="sw re"></i> Real</p>',lg2='<p class="mut"><i class="sw nb"></i> Consumió de menos &nbsp;<i class="sw pb"></i> Consumió de más</p>';
   const A0=alertas(L,s,M),AS=alertasSeparar(A0,1),A=AS.vis,okp=s.B.length?s.ok/s.B.length*100:0;   // A = alertas no descartadas
@@ -883,7 +881,7 @@ function analysis(){
     <p class="mut">Neta cercana a 0 con absoluta alta = unas OP compensan a otras; no es buen desempeño. «Absoluta por cartón» detecta además compensación dentro de una misma OP.</p>
     <h3>Consumo fuera del comparativo</h3>
     <div class="kpis">${K('Sin programar en ERP',fmt(s.Rsp)+' m²',s.Rsp?'c-sinprog':'',`${s.sp.length} OP · ${new Set(s.sp.map(r=>r.modelo)).size} modelo(s)`)}${K('Inclusiones',fmt(s.Rinc)+' m²','',s.incl.length+' reg.')}${K('Caja de Ingeniería',fmt(s.Ring)+' m²','',s.ingr.length+' reg.')}${K('Consumo real total',fmt(s.Rtot)+' m²','','comparable + fuera del comparativo')}</div>
-    <p class="mut">No tienen m² esperados: suman al consumo real, no a las diferencias ni a la compensación. Excluidos del comparativo: ${s.inc.length} incompleto(s).</p>`;
+    <p class="mut">No tienen m² esperados: suman al consumo real, no a las diferencias ni a la compensación.</p>`;
   // 3 · Alertas
   const r3=(A.length?A.map(([c,t,go])=>`<div class="al ${c}"><span>${t}</span><span class="alb">${go?`<button class="btn ghost sm" type="button" data-go="${esc(go)}">Ver</button>`:''}${aloBtn(t)}</span></div>`).join(''):`<p class="mut">${AS.ocu.length?'Sin alertas pendientes.':'Sin alertas con estos filtros.'}</p>`)+aloRest(AS.ocu,1);
   // 4 · Esperado vs real + cruce semana × coincidencia
@@ -1038,7 +1036,7 @@ $('#xbtn').onclick=()=>{
     ...[...s.cruce,s.cruceTot].map(w=>[w.k,w.n,w.ok,...cz(w.mismo),...cz(w.cambio),...cz(w.extra),r3(w.R-w.E),V(w.R,w.E)]),[]];
   const RS=[['Indicadores generales (solo OP completas)'],['Esperado (m²)',r3(s.E)],['Real (m²)',r3(s.R)],['Variación %',V(s.R,s.E)],['Diferencia positiva (m²)',r3(s.P)],['Diferencia negativa (m²)',r3(s.N)],['Diferencia neta (m²)',r3(net)],
     ['Diferencia absoluta por OP (m²)',r3(abs)],['Diferencia absoluta por cartón (m²)',r3(s.AC)],['% compensado',abs?r3((abs-Math.abs(net))/abs*100):0],['OP analizadas',s.B.length],['OP correctas',s.ok],
-    ['Registros incompletos (excluidos)',s.inc.length],['OP doble consumo pendientes de revisión',L.filter(doblePend).length],[],['Consumo sin OP (no entra en diferencias)'],['Inclusiones (registros)',s.incl.length],['Inclusiones (m² reales)',r3(s.Rinc)],
+    ['OP doble consumo pendientes de revisión',L.filter(doblePend).length],[],['Consumo sin OP (no entra en diferencias)'],['Inclusiones (registros)',s.incl.length],['Inclusiones (m² reales)',r3(s.Rinc)],
     ['Caja de Ingeniería (registros)',s.ingr.length],['Caja de Ingeniería (m² reales)',r3(s.Ring)],['Consumo real total: OP completas + sin OP (m²)',r3(s.Rtot)],[],['Registros por estado'],...Object.entries(L.reduce((m,r)=>{const t=est(r).t;m[t]=(m[t]||0)+1;return m},{})),[],
     ['Consumo sin programar en ERP (m²)',r3(s.Rsp)],['OP con consumo sin programar',s.sp.length],[],
     ['Sin programar por modelo (seguimiento)'],['Modelo','OP','m² sin programar','Seguimiento','Comentario','Por','Fecha'],
