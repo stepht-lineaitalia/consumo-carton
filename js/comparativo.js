@@ -83,7 +83,7 @@ function cmpTarjetas(x){
   let hh='<p class="mut">Esta OP no viene en el programa de hojas single.</p>';
   if(x.h){const h=x.h;
     hh=x.hReg?`${hsChip(h.k)}<div class="kpis cmpk">${kp('Hojas/mueble esperadas',h.esp!=null?nfmt(h.esp):'—')}${kp('Hojas/mueble reales',nfmt(h.real))}${kp('Diferencia',sgn(h.difM),h.difM>hsTol?'pos':h.difM<-hsTol?'neg':'')}</div>
-      ${h.esp!=null?`<div class="line">• Total OP: ${nfmt(h.esp*h.mu)} esperadas → ${nfmt(h.real*h.mu)} reales</div>`:''}${h.com?`<div class="line">• Comentario: ${esc(h.com)}</div>`:''}
+      ${h.esp!=null?`<div class="line">• Total OP: ${nfmt(h.esp*h.mu)} esperadas → ${nfmt(h.real*h.mu)} reales</div><div class="line">• Total OP: ${nfmt(h.esp*h.mu*HS.kgHoja)} kg esperados → ${nfmt(h.real*h.mu*HS.kgHoja)} kg reales</div>`:''}${h.com?`<div class="line">• Comentario: ${esc(h.com)}</div>`:''}
       ${h.r.rev?'<div class="line c-ok">• ✓ Marcada como corregida</div>':''}<div class="line mut">• Capturado ${dmy(h.r.ts)}</div><a href="#" class="cmplk" data-cmph="${esc(x.op)}">Ver en Hojas single → Tablero</a>`
       :`<span class="chip st st-pend">Pendiente</span><p class="mut" style="margin:8px 0 0">Programada (${nfmt(h.esp||0)} hojas por mueble, ${nfmt(h.mu)} muebles) pero todavía no se captura el real.</p>`}
   return`<div class="card"><div class="head"><h2 style="margin:0">${esc(x.op)} · ${esc(x.modelo)}</h2><span class="mut">${[x.area?AREA_TXT[x.area]:'',x.fecha?'Programa '+dmyISO(x.fecha):'',(m=>m?nfmt(m)+(m===1?' mueble':' muebles'):'')(x.h&&x.h.mu?x.h.mu:(x.c&&x.c.r.cant)||0)].filter(Boolean).join(' · ')}</span></div></div>
