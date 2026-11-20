@@ -63,7 +63,9 @@ h3{font-size:14px;margin:14px 0 8px}
 table.tc td,table.tc th{white-space:nowrap}.tt td{border-top:2px solid var(--line);font-weight:600}
 tr.fx td{background:var(--badbg)}
 details.mdl>summary{cursor:pointer;line-height:1.8}
-#dtable{min-width:860px}td.det{min-width:132px}.dh{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--mut);margin-top:4px}.dh:first-child{margin-top:0}#dtable.nodet{min-width:720px}details.mdl table{min-width:560px}
+#dtable{min-width:860px}td.det{min-width:200px}
+/* Tablero con «Detalle»: la página se ensancha para que la columna Detalle se vea completa */
+main:has(#v2:not(.hide) #dtable:not(.nodet)){max-width:1360px}#dtable:not(.nodet){min-width:1060px}.dh{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--mut);margin-top:4px}.dh:first-child{margin-top:0}#dtable.nodet{min-width:720px}details.mdl table{min-width:560px}
 @media(max-width:520px){.hb{grid-template-columns:76px 1fr 112px}.tabs button{padding:9px 4px;font-size:14px}}
 .nodet .det{display:none}
 .top{display:flex;justify-content:space-between;align-items:start;gap:10px}
