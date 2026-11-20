@@ -18,20 +18,20 @@ $('#sidetg').onclick=()=>{const c=!document.body.classList.contains('sidecol');d
 function ruta(){const m=document.querySelector('#side .mh.on'),s=document.querySelector('#side .subm:not(.hide) button.on');
   $('#crumb').textContent=(m?m.textContent:'')+(s?' › '+s.textContent:'')}
 new MutationObserver(ruta).observe($('#side'),{subtree:true,attributes:true,attributeFilter:['class']});ruta();
-async function tab(n){verModulo('carton');if(n!==1&&!document.body.classList.contains('admin'))n=1;if(n===4&&!veModelos())n=3;if(n===1&&document.body.classList.contains('ro'))n=3;cur=n;
-  [1,2,3,4].forEach(i=>{$('#v'+i).classList.toggle('hide',n!==i);$('#t'+i).classList.toggle('on',n===i)});
+async function tab(n){verModulo('carton');if(n!==1&&!document.body.classList.contains('admin'))n=1;if(n===4)n=3;if(n===1&&document.body.classList.contains('ro'))n=3;cur=n;
+  [1,2,3].forEach(i=>{$('#v'+i).classList.toggle('hide',n!==i);$('#t'+i).classList.toggle('on',n===i)});
   $('#flt').classList.toggle('hide',n===1);$('#ddetw').classList.toggle('hide',n!==2);
   if(n!==1){await reload();if(cur!==n)return}
-  if(n===2)board();if(n===3)analysis();if(n===4)modelosView();if(n===1)misHoy()}
-// Pestaña oculta a petición del negocio (el código se conserva para reactivarla): Hojas single → Análisis. Cartón → Modelos volvió en v5.16 (agrupación por Nº ruta).
-$('#t1').onclick=()=>tab(1);$('#t2').onclick=()=>tab(2);$('#t3').onclick=()=>tab(3);$('#t4').onclick=()=>tab(4);
+  if(n===2)board();if(n===3)analysis();if(n===1)misHoy()}
+// Pestaña oculta a petición del negocio (el código se conserva para reactivarla): Hojas single → Análisis. Cartón → Modelos se eliminó en nov 2026 (la agrupación por Nº ruta ya cargada se conserva).
+$('#t1').onclick=()=>tab(1);$('#t2').onclick=()=>tab(2);$('#t3').onclick=()=>tab(3);
 /* ==== SESIÓN, ROLES Y OPERADOR ====
    Modo local: «Modo admin» con contraseña en el navegador (como en 4.x).
    Nube: inicio de sesión (Supabase Auth) y rol de la tabla «perfiles»:
      admin → todo · planta → solo Captura · consulta → Análisis, Modelos y Tablero sin poder modificar. */
 const ROL={admin:'Administración',planta:'Planta',consulta:'Consulta'};
-/* ==== PESTAÑA MODELOS: SOLO PARA USUARIOS AUTORIZADOS ====
-   Cartón → Modelos (y cualquier mención a ella) y el botón «Excel formato registro (temporal)» solo los ve quien esté en esta lista. Se guarda la huella SHA-256 del correo
+/* ==== HERRAMIENTAS SOLO PARA USUARIOS AUTORIZADOS ====
+   El botón «Excel formato registro (temporal)» solo lo ve quien esté en esta lista. Se guarda la huella SHA-256 del correo
    (en minúsculas) para no publicar el correo en el código. Para autorizar a alguien más, agrega la huella de su correo.
    En modo local (sin nube) la ve el «Modo admin». Es una restricción de pantalla: los datos siguen en la misma configuración. */
 const MODELOS_AUT=['5808e4c592044dedb79636aefd1d2df7252ea54a2a4f0e5bd874a9da1b148a41'];

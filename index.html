@@ -17,7 +17,7 @@
 <!-- Menú de Administración (no lo ve Planta): módulos Cartón, Hojas single y Comparativo de consumos. Ver irModulo() en js/app.js -->
 <nav id="side" class="adm" aria-label="Módulos">
 <div class="mod"><button class="mh on" data-mod="carton" type="button">Cartón</button>
-<div class="subm" id="subcarton"><button id="t1" class="on w" type="button">Captura</button><button id="t3" type="button">Análisis</button><button id="t4" class="vmo" type="button">Modelos</button><button id="t2" type="button">Tablero</button></div></div>
+<div class="subm" id="subcarton"><button id="t1" class="on w" type="button">Captura</button><button id="t3" type="button">Análisis</button><button id="t2" type="button">Tablero</button></div></div>
 <div class="mod"><button class="mh" data-mod="hojas" type="button">Hojas single</button>
 <div class="subm hide" id="subhojas"><button data-hs="prog" class="on" type="button">Programa</button><button data-hs="cap" class="w" type="button">Captura</button><button data-hs="tab" type="button">Tablero</button><button data-hs="ana" class="hide" type="button">Análisis</button></div></div>
 <div class="mod"><button class="mh" data-mod="ambos" type="button">Comparativo de consumos</button></div>
@@ -93,21 +93,6 @@
 <p class="mut" id="dsum"></p></div>
 <section id="v2" class="hide"><div class="card"><div class="leg" id="leg" aria-label="Leyenda de estados (clic para filtrar)"></div><div class="scroll"><table id="dtable"><thead><tr><th>Fecha</th><th>Modelo / OP</th><th>Estado</th><th>Cartón</th><th class="n">m² esperados</th><th class="n">m² reales</th><th class="n">Diferencia (m²)</th><th>Cajas<br><span class="mut">Cant → capt.</span></th><th class="det">Corrección</th><th class="det">Detalle</th><th class="adm"></th></tr></thead><tbody id="dbody"></tbody></table></div><p><button class="btn ghost sm hide" id="more">Mostrar más</button></p></div></section>
 <section id="v3" class="hide"><div id="ana"></div></section>
-<section id="v4" class="hide vmo">
-<section class="card sec"><h2>Modelos por ruta</h2>
-<p class="mut" style="margin-top:0">Cada grupo es un <b>Nº ruta</b> de Dynamics (modelo base): junta sus colores y sus folios. Los números del grupo salen de los modelos de línea; los <b>folios</b> se muestran aparte porque son personalizados. Una variante queda <b>fuera del patrón</b> si usa un cartón distinto al de la mayoría o si sus m² por mueble se alejan más de la tolerancia de lo típico. Solo OP completas del periodo filtrado.</p>
-<div class="kpis" id="mkpi"></div>
-<label class="mut"><input type="checkbox" id="mrev" checked style="width:auto"> Solo los que requieren revisión</label>
-<details class="box w adm"><summary class="mut">Rutas de modelos: <b id="mrinfo"></b></summary>
-<p class="mut">Sube el Excel «Órdenes producción lanzadas» de Dynamics. Solo se leen <b>Cód. procedencia mov.</b> (código del mueble) y <b>Nº ruta</b> (modelo base). Cada carga agrega los códigos nuevos y actualiza los que cambiaron; no borra los anteriores.</p>
-<input type="file" id="mrfile" accept=".xlsx,.xls,.csv" class="w"><div id="mrmsg" class="mut" style="margin-top:6px"></div>
-<div id="msinruta" style="margin-top:8px"></div></details>
-<details class="box w adm"><summary class="mut">Excepciones de agrupación</summary>
-<p class="mut">Para casos raros: fuerza el grupo de un código, por encima del Nº ruta (uno por línea: CÓDIGO = GRUPO).</p>
-<textarea id="mexc" rows="5"></textarea><div class="row" style="margin-top:6px"><button class="btn ghost sm" id="msave" type="button">Guardar excepciones</button></div><p class="mut" id="mmsg"></p></details>
-</section>
-<div id="mlista"></div>
-</section>
 <!-- Hojas single y Comparativo de consumos: secciones de Administración (se construyen en las siguientes etapas) -->
 <section id="vh" class="hide adm">
 <div id="hsv-prog">
