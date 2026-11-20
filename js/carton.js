@@ -642,7 +642,7 @@ function cajasTxt(r){const P=r.per||[],S=f=>P.filter(f).reduce((s,p)=>s+p.cr,0),
   if(!P.some(pg))return`${cS||r.cr} <span class="c-sinprog">(sin programar)</span>`;
   if(cX&&coin(r)==='cambio')return r.ce+' → '+(cE+cX)+' <span class="mut">(cambio de cartón)</span>'+sp;
   return r.ce+' → '+cE+(cX?` <b>+ ${cX} extra</b>`:'')+sp}
-let cur=1,lim=100;const refresh=()=>cur===3?analysis():cur===4&&veModelos()?modelosView():board();
+let cur=1,lim=100;const refresh=()=>cur===3?analysis():board();
 // «Corregido» (marca de administración en el Tablero, columna visible solo con Detalle): para registros que no son
 // «Correcto». No cambia estados ni indicadores; solo reduce las alertas pendientes (sección 3) y alimenta el filtro.
 const porCorregir=r=>{const c=est(r).cls;return c==='bad'&&!esExcep(r)};
@@ -896,14 +896,14 @@ function analysis(){
     <tbody>${s.cruce.map(fila).join('')}${s.cruce.length>1?fila(T).replace('<tr>','<tr class="tt">'):''}</tbody></table></div>
     <p class="mut">«Correctas» = dentro de tolerancia. Cada OP cuenta en una sola columna según su cartón: mismo que el programado, cambio de cartón o con caja extra.</p>`;
   // 5 · Por modelo · 6 · Por tipo de cartón
-  const r5=`${lg2}${hbars(s.modelo.slice(0,8))}<p class="mut">Los ${Math.min(8,s.modelo.length)} códigos con mayor diferencia absoluta de ${s.modelo.length}. Lista completa en «Exportar Excel»${veModelos()?'; por modelo principal y variantes en la pestaña <b>Modelos</b>':''}.</p>`;
+  const r5=`${lg2}${hbars(s.modelo.slice(0,8))}<p class="mut">Los ${Math.min(8,s.modelo.length)} códigos con mayor diferencia absoluta de ${s.modelo.length}. Lista completa en «Exportar Excel».</p>`;
   const r6=`${lg2}${hbars(s.carton)}`;
   const mas=`<details class="card"><summary><b>Más desgloses</b> <span class="mut">(tipo de OP, Folio vs Línea, inclusiones por modelo)</span></summary>
     <h3>Por tipo de OP</h3>${lg2}${hbars(s.tipoOp)}<h3>Folio vs Línea</h3>${lg1}${gbars(s.clase)}
     <h3>Inclusiones por modelo (m² reales)</h3>${s.modInc.length?s.modInc.slice(0,12).map(x=>`<div class="line"><b>${fmt(x.R)} m²</b> · ${esc(x.k)} <span class="mut">(${x.n} reg.)</span></div>`).join(''):'<p class="mut">Sin inclusiones.</p>'}</details>`;
   $('#ana').innerHTML=SEC(1,'Resumen ejecutivo'+selSem,r1)+SEC(2,'Indicadores principales',r2)+SEC(3,'Alertas importantes',r3)+
     (s.B.length?SEC(4,'Consumo esperado vs real por semana',r4)+SEC(5,'Por día de la semana',porDia(s.B,resSem==='*'?'':resSem),'sdia')+SEC(6,'Diferencias por modelo',r5)+SEC(7,'Diferencias por tipo de cartón',r6):'')+mas+motivosCambio(s.B)+
-    (veModelos()?`<p class="mut">8 · Seguimiento de modelos → pestaña <b>Modelos</b> · 9 · Detalle completo → pestaña <b>Tablero</b></p>`:`<p class="mut">8 · Detalle completo → pestaña <b>Tablero</b></p>`);
+    `<p class="mut">8 · Detalle completo → pestaña <b>Tablero</b></p>`;
   const ds=$('#dsem');if(ds)ds.onchange=()=>{diaSem=ds.value;const y=window.scrollY;analysis();try{window.scrollTo(0,y)}catch(x){}};
 }
 // «Ver» en una alerta: conserva el periodo filtrado y abre la pestaña donde se revisa, ya filtrada.
@@ -913,75 +913,9 @@ $('#ana').addEventListener('click',async e=>{const off=e.target.dataset.aloff,on
 $('#ana').onclick=e=>{const g=e.target.dataset.go;if(g==null)return;const [t,v]=g.split('|');
   $('#fs').value='';$('#fq').value='';if(t==='2'){if(v.startsWith('q:'))$('#fq').value=v.slice(2);else $('#fs').value=v}tab(+t)};
 
-/* ==== 7 · SEGUIMIENTO DE MODELOS ====
-   Agrupa por modelo principal (modeloPrincipal) y compara sus variantes.
-   Variante fuera del patrón: usa un cartón distinto al de la mayoría del modelo, o sus m² por mueble se alejan más de la
-   tolerancia de los m² por mueble típicos del modelo (mediana de sus OP). Solo OP completas; periodo = filtros activos. */
+// Pestaña «Modelos» eliminada (nov 2026). Se conserva la agrupación por Nº ruta ya cargada (cfg.rutas) que usan Análisis y «Varias piezas por caja».
 const med=a=>{const b=[...a].sort((x,y)=>x-y),n=b.length;return n?(n%2?b[(n-1)/2]:(b[n/2-1]+b[n/2])/2):0};
 const moda=a=>{const c={};a.forEach(x=>c[x]=(c[x]||0)+1);return Object.keys(c).sort((x,y)=>c[y]-c[x])[0]||''};
-const juego=r=>r.per.filter(p=>p.R>0).map(p=>p.a).sort((a,b)=>a-b).join(' + ')+' cm';
-function modelosCalc(L){
-  const B=L.filter(isA),G={};
-  B.forEach(r=>{const k=modeloPrincipal(r.modelo);(G[k]||(G[k]=[])).push(r)});
-  const mueb=a=>a.reduce((s,r)=>s+(r.cant||1),0),SE=a=>a.reduce((s,r)=>s+r.E,0),SR=a=>a.reduce((s,r)=>s+r.R,0);
-  const out=Object.entries(G).map(([k,rs])=>{
-    // v5.16: los números del grupo salen de los modelos de línea; los folios (personalizados) van aparte y no los mueven.
-    const lin=rs.filter(r=>clase(r.modelo)!=='Folio'),fol=rs.filter(r=>clase(r.modelo)==='Folio'),base=lin.length?lin:fol;
-    const jm=moda(base.map(juego)),tip=med(base.map(r=>(r.R+(r.Rsp||0))/(r.cant||1))),E=SE(base),R=SR(base),v=vp(R,E);
-    const vari=(arr,esFol)=>{const V={};arr.forEach(r=>(V[r.modelo]||(V[r.modelo]=[])).push(r));const nv=Object.keys(V).length;
-      return Object.entries(V).map(([c,a])=>{const mu=mueb(a),e=SE(a),rr=SR(a),j=moda(a.map(juego)),m2=(rr+a.reduce((t,r)=>t+(r.Rsp||0),0))/mu,dv=tip?(m2-tip)/tip*100:0;
-        const mot=[];if(!esFol&&nv>1){if(j!==jm)mot.push(`usa ${j}; el grupo usa ${jm}`);if(Math.abs(dv)>tolv)mot.push(`m² por mueble ${dv>0?'+':''}${dv.toFixed(1)} % vs el grupo`)}
-        return{c,n:a.length,mu,E:e,R:rr,j,m2,esp:e/mu,v:vp(rr,e),dv,fuera:mot.length>0,mot,fol:esFol}}).sort((a,b)=>b.fuera-a.fuera||Math.abs(b.R-b.E)-Math.abs(a.R-a.E))};
-    const vars=vari(lin,false),fvars=vari(fol,true);
-    const nf=vars.filter(x=>x.fuera).length,stm=v==null?'Sin datos':Math.abs(v)<=tolv?'OK':v>0?'Usó más':'Usó menos';
-    const cods=[...new Set(rs.map(r=>r.modelo))],conR=cods.find(c=>rutaDe(c)===k),sinRuta=!conR&&!(cfg.modelosExc||{})[String(cods[0]).toUpperCase()];
-    const desc=conR?moda(Object.values(cfg.rutas||{}).filter(x=>String(x.r).toUpperCase()===k&&x.d).map(x=>x.d)):'';   // la descripción más común de la ruta
-    return{k,rs,n:rs.length,nl:lin.length,vars,fvars,nf,jm,tip,E,R,v,stm,desc,sinRuta,rev:nf>0||stm==='Usó más'||stm==='Usó menos'};
-  }).sort((a,b)=>b.rev-a.rev||b.nf-a.nf||Math.abs(b.R-b.E)-Math.abs(a.R-a.E));
-  return{lista:out,revisar:out.filter(m=>m.nf).length,fuera:out.reduce((s,m)=>s+m.nf,0),aRev:out.filter(m=>m.rev).length};
-}
-// Códigos de muebles (capturas y OP cargadas) que todavía no tienen Nº ruta ni excepción manual.
-function sinRuta(){const ex=cfg.modelosExc||{},S=new Set();
-  vis().filter(r=>r.kind==='op').forEach(r=>S.add(String(r.modelo).trim().toUpperCase()));
-  Object.values(cat).filter(o=>!excluida(o.op)).forEach(o=>S.add(String(o.modelo).trim().toUpperCase()));
-  return[...S].filter(c=>c&&!rutaDe(c)&&!ex[c]).sort()}
-function rutasInfo(){const n=Object.keys(cfg.rutas||{}).length,sr=sinRuta();
-  $('#mrinfo').textContent=n?`${n} código(s) con ruta`+(sr.length?` · ${sr.length} sin ruta`:''):'sin cargar';
-  $('#msinruta').innerHTML=sr.length?`<p class="mut" style="margin:0 0 4px"><b>Sin ruta (${sr.length})</b>: se agrupan con las reglas provisionales hasta que cargues un Excel donde aparezcan.</p><div class="mut">${sr.map(esc).join(', ')}</div>`:(n?'<p class="mut" style="margin:0">Todos los códigos capturados y cargados tienen ruta.</p>':'')}
-function modelosView(){
-  weeks();const L0=filt(),L=L0.filter(r=>!esVpc(r)),nv=L0.length-L.length,M=modelosCalc(L),solo=$('#mrev').checked,lst=solo?M.lista.filter(m=>m.rev):M.lista;   // varias piezas por caja: fuera, igual que en Análisis
-  $('#dsum').innerHTML=`${cnt(L0)}: ${M.lista.length} grupo(s) con OP completas`+(nv?` · ${nv} OP de «Varias piezas por caja» no se incluyen`:'');
-  $('#mkpi').innerHTML=K('Grupos (rutas)',M.lista.length)+K('Requieren revisión',M.aRev,M.aRev?'pos':'')+K('Variantes fuera del patrón',M.fuera,M.fuera?'pos':'','en '+M.revisar+' grupo(s)');
-  const chip=st=>`<span class="chip st st-${st==='OK'?'ok':st==='Sin datos'?'sinop':'cons'}">${st}</span>`;
-  const fila=(x,m)=>`<tr${x.fuera?' class="fx"':''}><td><b>${esc(x.c)}</b>${x.fol?' <span class="chip na">Folio</span>':''}</td><td>${x.n}${x.n===1?' <span class="mut">(1 registro)</span>':''}</td><td>${esc(x.j)}</td><td>${fmt(x.m2)} <span class="mut">(esp. ${fmt(x.esp)})</span></td><td>${pct(x.R,x.E)}</td><td>${x.fol?(m.nl?`<span class="mut">${x.j===m.jm?'mismo cartón':'otro cartón'} · ${x.dv>0?'+':''}${x.dv.toFixed(1)} % vs el grupo</span>`:'<span class="mut">—</span>'):x.fuera?`<span class="chip st st-${x.j!==m.jm?'camb':'cons'}">Fuera del patrón</span><br><span class="mut">${esc(x.mot.join(' · '))}</span>`:m.vars.length>1?'<span class="chip st st-ok">En patrón</span>':'<span class="mut">única variante</span>'}</td></tr>`;
-  const tabla=(t,arr,m)=>arr.length?`${t}<div class="scroll"><table><thead><tr><th>Código</th><th>OP</th><th>Cartón usado</th><th>m²/mueble real</th><th>vs esperado</th><th>Patrón</th></tr></thead><tbody>${arr.map(x=>fila(x,m)).join('')}</tbody></table></div>`:'';
-  $('#mlista').innerHTML=lst.length?lst.map(m=>`<details class="card mdl"${m.nf?' open':''}><summary><b>${m.sinRuta?esc(m.k):'Ruta '+esc(m.k)}</b>${m.desc?` <span class="mut">· ${esc(m.desc)}</span>`:''}${m.sinRuta?' <span class="chip pend">Sin ruta</span>':''}<br><span class="mut">${[m.vars.length?m.vars.length+' código(s) de línea':'',m.fvars.length?m.fvars.length+' folio(s)':''].filter(Boolean).join(' · ')} · ${m.n} OP · cartón habitual ${esc(m.jm)} · ${fmt(m.tip)} m²/mueble</span><br>
-    ${chip(m.stm)} <span class="mut">vs esperado ${pct(m.R,m.E)} (${sgm(m.R-m.E)} m²)${m.nl?'':' · solo folios'}</span>${m.nf?` <span class="chip bad">${m.nf} variante(s) fuera del patrón</span>`:''}</summary>
-    ${tabla('',m.vars,m)}${tabla(m.vars.length?'<p class="mut" style="margin:10px 0 4px"><b>Folios</b> (aparte: no cuentan en los números del grupo)</p>':'',m.fvars,m)}</details>`).join(''):`<div class="card mut">${solo?'Ningún grupo requiere revisión con estos filtros. Desmarca «Solo los que requieren revisión» para ver todos.':'No hay OP completas con estos filtros.'}</div>`;
-  $('#mexc').value=Object.entries(cfg.modelosExc||{}).map(([k,v])=>k+' = '+v).join('\n');rutasInfo();
-}
-// Carga de rutas (v5.16): Excel «Órdenes producción lanzadas». Agrega/actualiza; nunca borra. Relee la config antes de escribir.
-const hnorm=h=>String(h).normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]/g,'');
-function leerRutas(rows){const M={},conf=new Set();let sin=0;
-  if(!rows.length)return{error:'El archivo no tiene renglones.'};
-  const ks=Object.keys(rows[0]),kc=ks.find(k=>hnorm(k)==='codprocedenciamov'),kr=ks.find(k=>hnorm(k)==='nruta'),kd=ks.find(k=>hnorm(k)==='descripcion');
-  if(!kc||!kr)return{error:'No encontré las columnas «Cód. procedencia mov.» y «Nº ruta». ¿Es el Excel «Órdenes producción lanzadas»?'};
-  rows.forEach(w=>{const c=String(w[kc]).trim().toUpperCase(),r=String(w[kr]).trim().toUpperCase();if(!c||!r){sin++;return}
-    if(M[c]&&M[c].r!==r)conf.add(c);else if(!M[c])M[c]={r,d:kd?String(w[kd]).trim().slice(0,80):''}});
-  conf.forEach(c=>delete M[c]);return{M,conf:[...conf],sin}}
-$('#mrfile').onchange=async e=>{const f=e.target.files[0];if(!f)return;const msg=$('#mrmsg');msg.style.color='';msg.textContent='Leyendo…';
-  try{const wb=XLSX.read(await f.arrayBuffer(),{type:'array'}),x=leerRutas(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:''}));
-    if(x.error){msg.textContent=x.error;msg.style.color='var(--bad)';return}
-    const st=await DB.getSettings(),R0={...(st.rutas||{})};let nu=0,ca=0,ig=0;const cam=[];
-    Object.entries(x.M).forEach(([c,v])=>{const p=R0[c];if(!p)nu++;else if(p.r!==v.r){ca++;cam.push(`${c}: ${p.r} → ${v.r}`)}else ig++;R0[c]=v});
-    await DB.saveSettings({rutas:R0});cfg.rutas=R0;
-    msg.innerHTML=`✓ ${nu} código(s) nuevo(s) · ${ca} con ruta actualizada · ${ig} sin cambios.`+(cam.length?`<br>Cambiaron de ruta: ${cam.slice(0,10).map(esc).join('; ')}${cam.length>10?'…':''}`:'')+
-      (x.conf.length?`<br><span style="color:var(--bad)">⚠ No se cargaron ${x.conf.length} código(s) que aparecen con dos rutas distintas en el archivo: ${x.conf.map(esc).join(', ')}. Revísalos en Dynamics o ponlos en Excepciones.</span>`:'');
-    refresh()}catch(x){dbErr(x,'No se pudieron cargar las rutas')}finally{e.target.value=''}};
-$('#mrev').onchange=()=>modelosView();
-$('#msave').onclick=async()=>{const P={},bad=[];$('#mexc').value.split('\n').map(x=>x.trim()).filter(Boolean).forEach(l=>{const m=l.match(/^(\S+)\s*=\s*(\S.*)$/);if(m)P[m[1].toUpperCase()]=m[2].trim().toUpperCase();else bad.push(l)});
-  if(bad.length){$('#mmsg').textContent='Revisa el formato «CÓDIGO = MODELO PRINCIPAL» en: '+bad.join(' | ');$('#mmsg').style.color='var(--bad)';return}
-  try{await DB.saveSettings({modelosExc:P});cfg.modelosExc=P;$('#mmsg').textContent='Excepciones guardadas.';$('#mmsg').style.color='';modelosView()}catch(x){dbErr(x,'No se pudieron guardar las excepciones')}};
 [...FSEL,'#ddet'].forEach(x=>$(x).oninput=()=>{lim=100;refresh()});
 $('#more').onclick=()=>{lim+=100;board()};
 $('#fclr').onclick=()=>{FSEL.forEach(x=>$(x).value='');lim=100;refresh()};
@@ -1020,7 +954,7 @@ $('#dbody').onclick=async e=>{
 };
 $('#xbtn').onclick=()=>{
   const L=filt();if(!L.length){alert('No hay registros con el filtro actual.');return}
-  const s=summ(L),M=modelosCalc(L),op=r=>r.kind==='op',Y=r=>r.mismo===null?'N/A':r.mismo?'Sí':'No',V=(R,E)=>{const v=vp(R,E);return v==null?'':r3(v)};
+  const s=summ(L),op=r=>r.kind==='op',Y=r=>r.mismo===null?'N/A':r.mismo?'Sí':'No',V=(R,E)=>{const v=vp(R,E);return v==null?'':r3(v)};
   const dbl=r=>esDoble(r)?(r.rev?'Revisada':'Pendiente de revisión'):'';
   const A=L.map(r=>{const e=est(r);return{'Tipo de registro':KINDS[r.kind],'OP':r.op,'Modelo':r.modelo,'Modelo base (Nº ruta)':modeloPrincipal(r.modelo)+(rutaDe(r.modelo)?'':' (sin ruta)'),'Tipo de modelo':clase(r.modelo),'Estado':e.t,'Causa principal':e.c,
     'Cartón programado':op(r)?cartP(r):'','Cartón utilizado':cartU(r),'Coincidencia de cartón':op(r)&&isA(r)?COIN[coin(r)]:'','Consumo esperado (m²)':op(r)?r3(r.E):'','Consumo real (m²)':r3(r.R+(r.Rsp||0)),'Consumo sin programar (m²)':op(r)?r3(r.Rsp||0):'','Programación ERP':op(r)?progTxt(r):'','Seguimiento ERP':est(r).k==='sinprog'?SEG[segEstado(r.modelo,r.ts)]:'','Diferencia total (m²)':op(r)?r3(r.diff):'','Variación %':op(r)?V(r.R,r.E):'',
@@ -1043,14 +977,10 @@ $('#xbtn').onclick=()=>{
     ['Sin programar por modelo (seguimiento)'],['Modelo','OP','m² sin programar','Seguimiento','Comentario','Por','Fecha'],
     ...segModelos(L).map(g=>{const x=cfg.seguimiento[g.modelo]||{};return[g.modelo,g.n,r3(g.R),SEG[g.estado],x.com||'',x.por||'',x.ts?dmy(x.ts):'']}),[],
     ...CR,...g('Por modelo (código completo)',s.modelo),...g('Por tipo de cartón',s.carton),...g('Folio vs Línea',s.clase),...g('Por tipo de OP',s.tipoOp),...g('Por tipo de registro',s.reg),...g('Inclusiones por modelo (solo real)',s.modInc),...g('Por semana (registro)',s.semana)];
-  const MO=M.lista.flatMap(m=>m.vars.map(x=>({'Modelo principal (provisional)':m.k,'Estatus del modelo':m.stm,'Modelo: variación %':V(m.R,m.E),'Modelo: cartón habitual':m.jm,'Modelo: m²/mueble típico':r3(m.tip),
-    'Variante':x.c,'OP':x.n,'Muebles':x.mu,'Cartón usado':x.j,'m²/mueble real':r3(x.m2),'m²/mueble esperado':r3(x.esp),'Variación % vs esperado':V(x.R,x.E),'Diferencia (m²)':r3(x.R-x.E),
-    'Patrón':m.vars.length<2?'Única variante':x.fuera?'Fuera del patrón':'En patrón','Motivo':x.mot.join(' · '),'Último registro':ymd(new Date(x.ult))})));
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(A),'Reporte');
   XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(D),'Desglose por OP');
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(RS),'Resumen');
-  if(veModelos())XLSX.utils.book_append_sheet(wb,MO.length?XLSX.utils.json_to_sheet(MO):XLSX.utils.aoa_to_sheet([['Sin OP completas']]),'Modelos');
   XLSX.writeFile(wb,'consumo-carton-'+ymd(new Date())+'.xlsx');
 };
 // ==== Excel «formato registro» (TEMPORAL) ====  Solo valores (sin fórmulas), un renglón por CARTÓN (valores individuales,
