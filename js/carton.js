@@ -952,15 +952,45 @@ $('#dbody').onclick=async e=>{
     if(r.kind==='op'&&!cat[r.op]){alert('Esa OP ya no está en el catálogo cargado.');return}
     tab(1);$('#kind').value=r.kind;$('#kind').onchange();editId=r.id;start(r.kind,r.kind==='op'?r.op:r.modelo,r)}
 };
+// Hoja «Reporte» (v5.19): UN RENGLÓN POR CARTÓN. Cambio de cartón = programado y utilizado en el mismo renglón;
+// usado sin programar = «Caja extra» (o «Sin programar»); programado sin usar = «No utilizado» (también el programado en 0 m²).
+// Datos de la OP (estado, causa, fechas, comentarios…) se repiten en cada renglón; los m² y cajas son del cartón del renglón,
+// así que sumar los renglones de una OP da los totales de la OP.
+// «N producto programado» / «N producto utilizado» = código del cartón (NoComponente de Dynamics) de cada lado del renglón.
+// «Cumple»: es el cartón programado y sus m² están dentro de ±tolerancia. Inclusión / Caja de Ingeniería: N/A.
+function codCarton(r,a){const x=(cat[r.op]&&cat[r.op].rows||[]).find(q=>+q.ancho===+a);if(x&&x.cod)return x.cod;
+  return Object.entries(cfg.cartones).filter(([,v])=>+v===+a).map(([k])=>k).join(' / ')}
+// Fechas como fecha de Excel (número de serie, sin desfase de zona horaria); se muestran dd/mm/aaaa.
+const fXl=ts=>{const d=new Date(ts);return Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())/864e5+25569},
+  vXl=v=>{const m=String(v||'').match(/^(\d{4})-(\d{2})-(\d{2})/);return m?Date.UTC(+m[1],+m[2]-1,+m[3])/864e5+25569:''};
+function hojaFechas(ws,cols){const R=XLSX.utils.decode_range(ws['!ref']);
+  for(let c=R.s.c;c<=R.e.c;c++){const h=ws[XLSX.utils.encode_cell({r:0,c})];if(!h||!cols.includes(h.v))continue;
+    for(let r=1;r<=R.e.r;r++){const x=ws[XLSX.utils.encode_cell({r,c})];if(x&&x.t==='n')x.z='dd/mm/yyyy'}}
+  return ws}
+function filasReporte(L,{op,Y,V}){const out=[];
+  L.forEach(r=>{const e=est(r),o=op(r),cant=r.cant||1,P=(r.per||[]).filter(p=>(o&&pg(p))||p.R>0);
+    const cero=o?P.filter(p=>pg(p)&&p.z&&!(p.R>0)):[],prog=o?P.filter(p=>pg(p)&&!p.z&&!(p.R>0)):[],usad=P.filter(p=>p.R>0&&(!o||!pg(p))),pares=o?P.filter(p=>pg(p)&&p.R>0).map(p=>[p,p]):[];
+    (r.mcc||[]).forEach(m=>{const i=prog.findIndex(p=>+p.a===+m.de),j=usad.findIndex(p=>+p.a===+m.a&&!p.sp);if(o&&i>=0&&j>=0)pares.push([prog.splice(i,1)[0],usad.splice(j,1)[0]])});
+    const libres=usad.filter(p=>!p.sp);while(o&&prog.length&&libres.length){const c=libres.shift();usad.splice(usad.indexOf(c),1);pares.push([prog.shift(),c])}
+    const F=[...pares,...prog.map(p=>[p,null]),...cero.map(p=>[p,null]),...usad.map(p=>[null,p])].sort((x,y)=>(x[1]||x[0]).a-(y[1]||y[0]).a);
+    if(!F.length)F.push([null,null]);
+    F.forEach(([b,c])=>{const sp=!!(c&&c.sp),E=o&&b&&!sp?b.E:0,R=c?c.R:0,cmp=o&&!sp,d=R-E;
+      const mismo=!o?'N/A':sp?'Sin programar':!c?'No utilizado':!b?'Caja extra':+b.a===+c.a?'Sí':'No';
+      const cumple=!o?'N/A':(mismo==='Sí'&&E>0&&Math.abs(d/E*100)<=tolv)?'Cumple':'No cumple';
+      out.push({'OP':r.op,'Modelo':r.modelo,'Tipo de OP':o?tipoReg(r):'','Tipo de modelo':clase(r.modelo),'Fecha de registro':fXl(r.ts),'Vencimiento OP':vXl(r.venc),
+        'Estado':e.t,'N producto programado':b?codCarton(r,b.a):'','N producto utilizado':c?codCarton(r,c.a):'',
+        'Cartón programado':o?(b?b.a+' cm'+(b.z?' (0 m²)':''):(r.per.some(pg)?'':'Sin cartón en ERP')):'','Cartón utilizado':c?c.a+' cm':'—',
+        'Causa principal':e.c,'Mismo tipo de cartón':mismo,'Motivo cambio de cartón':motTxt(r),
+        'Cajas esperadas (Cant)':o?(b?b.ce:0):'','Cajas capturadas':c?c.cr:0,
+        'Consumo esperado (m²)':o?r3(E):'','Consumo real (m²)':r3(R),'Consumo sin programar (m²)':o?r3(sp?R:0):'',
+        'Diferencia total (m²)':cmp?r3(d):'','Variación %':cmp?V(R,E):'','Diferencia por mueble (m²)':cmp?r3(d/cant):'','Diferencia absoluta (m²)':cmp?r3(Math.abs(d)):'',
+        'Programación ERP':o?progTxt(r):'','Seguimiento ERP':e.k==='sinprog'?SEG[segEstado(r.modelo,r.ts)]:'','Comentarios':r.com,'Cumple / No cumple':cumple,'Tipo de registro':KINDS[r.kind]})})});
+  return out}
 $('#xbtn').onclick=()=>{
   const L=filt();if(!L.length){alert('No hay registros con el filtro actual.');return}
   const s=summ(L),op=r=>r.kind==='op',Y=r=>r.mismo===null?'N/A':r.mismo?'Sí':'No',V=(R,E)=>{const v=vp(R,E);return v==null?'':r3(v)};
   const dbl=r=>esDoble(r)?(r.rev?'Revisada':'Pendiente de revisión'):'';
-  const A=L.map(r=>{const e=est(r);return{'Tipo de registro':KINDS[r.kind],'OP':r.op,'Modelo':r.modelo,'Modelo base (Nº ruta)':modeloPrincipal(r.modelo)+(rutaDe(r.modelo)?'':' (sin ruta)'),'Tipo de modelo':clase(r.modelo),'Estado':e.t,'Causa principal':e.c,
-    'Cartón programado':op(r)?cartP(r):'','Cartón utilizado':cartU(r),'Coincidencia de cartón':op(r)&&isA(r)?COIN[coin(r)]:'','Consumo esperado (m²)':op(r)?r3(r.E):'','Consumo real (m²)':r3(r.R+(r.Rsp||0)),'Consumo sin programar (m²)':op(r)?r3(r.Rsp||0):'','Programación ERP':op(r)?progTxt(r):'','Seguimiento ERP':est(r).k==='sinprog'?SEG[segEstado(r.modelo,r.ts)]:'','Diferencia total (m²)':op(r)?r3(r.diff):'','Variación %':op(r)?V(r.R,r.E):'',
-    'Diferencia por mueble (m²)':op(r)?r3(r.dm):'','Diferencia absoluta (m²)':op(r)?r3(r.abs):'','Cajas esperadas (Cant)':op(r)?r.ce:'','Cajas capturadas':r.cr,'Mismo tipo de cartón':Y(r),
-    'Semana (registro)':r.semana,'Fecha de registro':ymd(new Date(r.ts)),'Vencimiento OP':r.venc||'','Tipo de OP':op(r)?tipoReg(r):'','Estado ERP':r.estadoERP,
-    'OP doble consumo':dbl(r),'1/2 cartones confirmado por operador':r.conf12?'Sí':'','Operador':r.operador||'','Motivo cambio de cartón':motTxt(r),'Comentarios':r.com}});
+  const A=filasReporte(L,{op,Y,V});
   const ps=(r,p)=>r.kind!=='op'?KINDS[r.kind]:p.sp?'Sin programar':(p.E&&!p.R)?'Sin capturar':!p.E?'Cartón no esperado':Math.abs((p.R-p.E)/p.E*100)<=tolv?'Correcto':'Con diferencia';
   const D=[...L].sort((a,b)=>String(a.op).localeCompare(b.op)).flatMap(r=>r.per.map(p=>({'Tipo de registro':KINDS[r.kind],'OP':r.op,'Tipo de OP':op(r)?tipoReg(r):'','Modelo':r.modelo,'Tipo de modelo':clase(r.modelo),'Semana':r.semana,'Estado de la OP':est(r).t,
     'Cartón (cm)':p.a,'Esperado (m²)':r3(p.E),'Real (m²)':r3(p.R),'Diferencia (m²)':r3(p.R-p.E),'Variación %':V(p.R,p.E),'Estado del cartón':ps(r,p),'Cajas esperadas (Cant)':p.ce||'','Cajas capturadas':p.cr,
@@ -978,7 +1008,7 @@ $('#xbtn').onclick=()=>{
     ...segModelos(L).map(g=>{const x=cfg.seguimiento[g.modelo]||{};return[g.modelo,g.n,r3(g.R),SEG[g.estado],x.com||'',x.por||'',x.ts?dmy(x.ts):'']}),[],
     ...CR,...g('Por modelo (código completo)',s.modelo),...g('Por tipo de cartón',s.carton),...g('Folio vs Línea',s.clase),...g('Por tipo de OP',s.tipoOp),...g('Por tipo de registro',s.reg),...g('Inclusiones por modelo (solo real)',s.modInc),...g('Por semana (registro)',s.semana)];
   const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(A),'Reporte');
+  XLSX.utils.book_append_sheet(wb,hojaFechas(XLSX.utils.json_to_sheet(A),['Fecha de registro','Vencimiento OP']),'Reporte');
   XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(D),'Desglose por OP');
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(RS),'Resumen');
   XLSX.writeFile(wb,'consumo-carton-'+ymd(new Date())+'.xlsx');
