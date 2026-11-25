@@ -91,9 +91,13 @@ function leerProgramaHS(rows){
 }
 
 /* ==== ESTADO Y PANTALLA «PROGRAMA» ==== */
-let hsProg=[],hsReg=[],hsPend=null,hsFecha='';
+let hsProg=[],hsReg=[],hsCerr={},hsPend=null,hsFecha='';
 const hsCambio=(a,b)=>a.modelo!==b.modelo||a.area!==b.area||a.fecha!==b.fecha||Math.abs(a.kgPor-b.kgPor)>1e-9||Math.abs(a.kgEsp-b.kgEsp)>1e-9;
-async function hsCargarDatos(){[hsProg,hsReg]=await Promise.all([HDB.listPrograma(),HDB.listRegistros()])}
+// «Cerrada sin registro»: OP pendiente que ya no se va a capturar. Se guarda como un registro sin hojas ({cerrada:{por,ts},prog})
+// en la misma tabla (no requiere SQL nuevo). hsReg = solo registros con hojas reales; hsCerr = cerradas por OP (si una OP
+// cerrada llega a tener hojas reales, cuenta lo real). Reabrir = borrar el registro de cierre (borrado lógico).
+async function hsCargarDatos(){let R;[hsProg,R]=await Promise.all([HDB.listPrograma(),HDB.listRegistros()]);
+  hsReg=R.filter(r=>!r.cerrada);const con=new Set(hsReg.map(r=>r.op));hsCerr={};R.filter(r=>r.cerrada&&!con.has(r.op)).forEach(r=>hsCerr[r.op]=r)}
 const hsMsg=(h,bad)=>{const e=$('#hsmsg');e.innerHTML=h;e.style.color=bad?'var(--bad)':''};
 
 async function hsSubirExcel(f){
@@ -136,7 +140,7 @@ function hsProgramaView(keepMsg){
   const conReal=new Set(hsReg.map(r=>r.op));
   $('#hstabla').innerHTML=!L.length&&B?'<p class="mut">Ninguna OP o modelo coincide con la búsqueda.</p>':L.length?`<div class="scroll"><table class="tc"><thead><tr>${B?'<th>Programa</th>':''}<th>Área</th><th>OP</th><th>Modelo</th><th class="n">Muebles</th><th class="n">Hojas por mueble</th><th class="n">Hojas totales</th><th>Real</th></tr></thead><tbody>`+
     L.map(p=>{const raro=!(p.kgPor>0)||!entero(p.hojasMueble)||!entero(p.muebles);
-      return`<tr${raro?' class="fx"':''}>${B?`<td>${dmyISO(p.fecha)}</td>`:''}<td>${AREA_TXT[p.area]}</td><td>${esc(p.op)}</td><td>${esc(p.modelo)}</td><td class="n">${nfmt(p.muebles)}</td><td class="n">${nfmt(p.hojasMueble)}</td><td class="n">${nfmt(p.muebles*p.hojasMueble)}</td><td>${conReal.has(p.op)?'<span class="chip ok">Capturado</span>':'<span class="mut">Pendiente</span>'}</td></tr>`}).join('')+
+      return`<tr${raro?' class="fx"':''}>${B?`<td>${dmyISO(p.fecha)}</td>`:''}<td>${AREA_TXT[p.area]}</td><td>${esc(p.op)}</td><td>${esc(p.modelo)}</td><td class="n">${nfmt(p.muebles)}</td><td class="n">${nfmt(p.hojasMueble)}</td><td class="n">${nfmt(p.muebles*p.hojasMueble)}</td><td>${conReal.has(p.op)?'<span class="chip ok">Capturado</span>':hsCerr[p.op]?'<span class="mut">Cerrada sin registro</span>':'<span class="mut">Pendiente</span>'}</td></tr>`}).join('')+
     `</tbody></table></div>`+(L.some(p=>!(p.kgPor>0)||!entero(p.hojasMueble)||!entero(p.muebles))?`<p class="mut" style="margin:6px 0 0">Renglones en rojo: programación por revisar en Dynamics.</p>`:''):'';
   if(!keepMsg&&!hsProg.length)hsMsg('');
 }
@@ -183,7 +187,9 @@ async function hsGenerarPDF(){
    Misma forma que el PDF: eliges fecha y área, escribes las «Hojas realmente utilizadas por mueble» y cada renglón se pinta
    al momento. Nada se guarda hasta «Guardar». Las OP sin capturar quedan Pendientes y siguen apareciendo en fechas
    posteriores (sección «Pendientes de fechas anteriores») hasta que se registren. Lo ya capturado se puede corregir;
-   si borras el número de una OP capturada y guardas, el registro se elimina (vuelve a Pendiente). */
+   si borras el número de una OP capturada y guardas, el registro se elimina (vuelve a Pendiente).
+   Las pendientes de fechas anteriores que ya no se van a registrar se pueden «Cerrar» (una por una o todas): desaparecen de
+   la Captura, del Tablero, del Análisis y del Seguimiento integral, y quedan en «OP cerradas sin registro» para reabrirlas. */
 let hsTol=0;                                     // tolerancia en hojas por mueble (etapa 6: configurable)
 let hcArea='MUEBLES',hcEdit={},hcExtra=[],hcComV=PREF.get('hs_com')==='1';
 const HC_EST={ok:{k:'ok',t:'Correcto'},dif:{k:'cambcons',t:'Diferencia'},pend:{k:'pend',t:'Pendiente'},sinprog:{k:'sinprog',t:'Sin programar'}};
@@ -194,21 +200,43 @@ function hsEstado(esp,real){if(real==null)return HC_EST.pend;if(esp==null)return
 const hcVal=(op,k)=>{const e=hcEdit[op];if(e&&k in e)return e[k];const r=hsRegBy()[op];return r?(k==='real'?String(r.real):(r.com||'')):''};
 function hcFilas(){
   const reg=hsRegBy(),f=hsFecha,a=hcArea;
-  const dia=hsProg.filter(p=>p.fecha===f&&p.area===a).sort((x,y)=>x.op.localeCompare(y.op));
+  const dia=hsProg.filter(p=>p.fecha===f&&p.area===a&&!hsCerr[p.op]).sort((x,y)=>x.op.localeCompare(y.op));
   const enDia=new Set(dia.map(p=>p.op));
-  const pend=hsProg.filter(p=>p.area===a&&p.fecha&&p.fecha<f&&!reg[p.op]&&!enDia.has(p.op)).sort((x,y)=>x.fecha.localeCompare(y.fecha)||x.op.localeCompare(y.op));
+  const pend=hsProg.filter(p=>p.area===a&&p.fecha&&p.fecha<f&&!reg[p.op]&&!hsCerr[p.op]&&!enDia.has(p.op)).sort((x,y)=>x.fecha.localeCompare(y.fecha)||x.op.localeCompare(y.op));
   // capturadas sin programa (OP agregadas a mano) de esta fecha/área
   const sinp=Object.values(reg).filter(r=>!hsProg.some(p=>p.op===r.op)&&r.prog&&r.prog.area===a&&r.prog.fecha===f);
   return{dia,pend,sinp};
 }
-function hcRow(p,o){o=o||{};const op=p.op,esp=p.kgPor>0?p.hojasMueble:null,rv=hcVal(op,'real'),real=hcNum(rv),e=isNaN(real)?null:hsEstado(esp,real);
+function hcRow(p,o){o=o||{};if(hsCerr[p.op])return hcRowCerr(p);const op=p.op,esp=p.kgPor>0?p.hojasMueble:null,rv=hcVal(op,'real'),real=hcNum(rv),e=isNaN(real)?null:hsEstado(esp,real);
   const dif=real!=null&&!isNaN(real)&&esp!=null?real-esp:null,ed=hcEdit[op]&&Object.keys(hcEdit[op]).length;
-  return`<tr class="r-${e?e.k:'err'}" data-op="${esc(op)}"><td>${esc(op)}${o.fecha?`<br><span class="mut">Programa ${dmyISO(p.fecha)}${o.area?' · '+AREA_TXT[p.area]:''}</span>`:''}</td><td>${esc(p.modelo||'')}</td>
+  return`<tr class="r-${e?e.k:'err'}" data-op="${esc(op)}"><td>${esc(op)}${o.fecha?`<br><span class="mut">Programa ${dmyISO(p.fecha)}${o.area?' · '+AREA_TXT[p.area]:''}</span>`:''}${o.cerrar?` <a href="#" class="w" data-hccerrar="${esc(op)}" title="Ya no se va a registrar: quitarla de pendientes">Cerrar</a>`:''}</td><td>${esc(p.modelo||'')}</td>
     <td class="n">${p.muebles!=null&&p.muebles!==''?nfmt(+p.muebles):'—'}</td><td class="n">${esp!=null?nfmt(esp):'—'}</td>
     <td><input class="hcreal" data-op="${esc(op)}" inputmode="decimal" autocomplete="off" value="${esc(rv)}" style="width:80px${isNaN(real)?';border-color:var(--bad)':''}"></td>
     <td class="n hcdif"><span class="${dif==null?'':Math.abs(dif)<=hsTol+1e-9?'c-ok':'pos'}" style="font-weight:600">${dif==null?'—':(dif>0?'+':'')+nfmt(dif)}</span>${!e?' <span class="chip err">Inválido</span>':''}${ed?' <span class="mut" title="Sin guardar">●</span>':''}${!hcComV&&hcVal(op,'com').trim()?` <span title="${esc(hcVal(op,'com'))}">💬</span>`:''}</td>
     <td class="hcest ccom">${e?`<span class="chip st st-${e.k}">${e.t}</span>`:'<span class="chip err">Número inválido</span>'}</td>
     <td class="ccom"><input class="hccom" data-op="${esc(op)}" autocomplete="off" value="${esc(hcVal(op,'com'))}" placeholder="Opcional" style="min-width:120px"></td></tr>`}
+// OP cerrada (solo aparece en la búsqueda): sin captura, con opción de reabrir.
+const hcRowCerr=p=>{const c=hsCerr[p.op].cerrada||{};return`<tr class="r-pend"><td>${esc(p.op)}<br><span class="mut">Programa ${dmyISO(p.fecha)} · ${AREA_TXT[p.area]||''}</span></td><td>${esc(p.modelo||'')}</td>
+  <td colspan="6" class="mut">Cerrada sin registro${c.por?' · '+esc(c.por):''}${c.ts?' · '+dmy(c.ts):''} · <a href="#" class="w" data-hcreabrir="${esc(p.op)}">Reabrir</a></td></tr>`};
+// Lista de cerradas del área elegida (plegada), para reabrir si se cerró por error.
+function hcListaCerr(){const L=Object.values(hsCerr).map(r=>({r,p:hsProg.find(q=>q.op===r.op)||{op:r.op,...(r.prog||{})}})).filter(x=>x.p.area===hcArea)
+  .sort((a,b)=>String(b.p.fecha).localeCompare(String(a.p.fecha))||a.p.op.localeCompare(b.p.op));
+  return L.length?`<details style="margin-top:12px"><summary class="mut">OP cerradas sin registro de ${AREA_TXT[hcArea].toLowerCase()} (${L.length})</summary><div class="scroll"><table class="tc"><thead><tr><th>OP</th><th>Modelo</th><th>Programa</th><th>Cerrada por</th><th></th></tr></thead><tbody>`+
+    L.map(({r,p})=>`<tr><td>${esc(p.op)}</td><td>${esc(p.modelo||'')}</td><td>${dmyISO(p.fecha)}</td><td class="mut">${esc((r.cerrada||{}).por||'')} · ${dmy((r.cerrada||{}).ts||r.ts)}</td><td><a href="#" class="w" data-hcreabrir="${esc(p.op)}">Reabrir</a></td></tr>`).join('')+'</tbody></table></div></details>':''}
+async function hcCerrar(ops){
+  const ed=ops.filter(op=>hcEdit[op]&&Object.keys(hcEdit[op]).length);ops=ops.filter(op=>!ed.includes(op));
+  if(!ops.length){hcMsg('⚠ Esa OP tiene cambios sin guardar: guárdalos o bórralos antes de cerrarla.',true);return}
+  if(!confirm(ops.length===1?`¿Cerrar la OP ${ops[0]} sin registro? Ya no aparecerá en pendientes ni en el análisis. Se puede reabrir desde «OP cerradas sin registro».`:
+    `¿Cerrar ${ops.length} OP pendientes de fechas anteriores sin registro? Ya no aparecerán en pendientes ni en el análisis. Se pueden reabrir desde «OP cerradas sin registro».`+(ed.length?`\n\n(${ed.length} con cambios sin guardar no se cierran.)`:'')))return;
+  hcMsg('Cerrando…');let ok=0;
+  try{const ts=Date.now(),c={por:quien(),ts};
+    for(const op of ops){const p=hsProg.find(q=>q.op===op)||{};await HDB.saveRegistro({op,ts,cerrada:c,com:'',prog:{modelo:p.modelo,area:p.area,fecha:p.fecha,muebles:p.muebles,hojasMueble:p.hojasMueble}});ok++}
+    await hsCargarDatos();hsCapturaView();hcMsg(`✓ ${ok} OP cerrada(s) sin registro.`)}
+  catch(x){await hsCargarDatos().catch(()=>{});hsCapturaView();hcMsg('⚠ '+esc(x.message||x)+(ok?` (se alcanzaron a cerrar ${ok})`:''),true)}
+}
+async function hcReabrir(op){const r=hsCerr[op];if(!r)return;
+  try{await HDB.deleteRegistro(r);await hsCargarDatos();hsCapturaView();hcMsg(`✓ ${esc(op)} reabierta: vuelve a pendientes.`)}
+  catch(x){hcMsg('⚠ '+esc(x.message||x),true)}}
 const HC_HEAD='<thead><tr><th>OP</th><th>Modelo</th><th class="n">Muebles</th><th class="n">Hojas por mueble</th><th>Reales por mueble</th><th class="n">Diferencia</th><th class="ccom">Estado</th><th class="ccom">Comentario</th></tr></thead>';
 function hsCapturaView(){
   const fs=[...new Set(hsProg.map(p=>p.fecha).filter(Boolean))].sort().reverse();
@@ -224,9 +252,9 @@ function hsCapturaView(){
     (dif?` · <b style="color:var(--bad)">${dif} con diferencia</b>`:'')+(pend.length?` · <b style="color:var(--warn)">${pend.length} pendientes de fechas anteriores</b>`:''):'Carga primero el programa en «Programa».';
   const head=HC_HEAD;
   let h=dia.map(p=>hcRow(p)).join('')+sinp.map(r=>hcRow({op:r.op,modelo:r.prog.modelo,muebles:r.prog.muebles,kgPor:0})).join('');
-  if(pend.length)h+=`<tr><td colspan="8" style="background:var(--warnbg);color:var(--warn);font-weight:600">Pendientes de fechas anteriores (${pend.length})</td></tr>`+pend.map(p=>hcRow(p,{fecha:1})).join('');
+  if(pend.length)h+=`<tr><td colspan="8" style="background:var(--warnbg);color:var(--warn);font-weight:600">Pendientes de fechas anteriores (${pend.length}) <button class="btn ghost sm" id="hccerrtodas" type="button" style="margin-left:8px" title="Las que ya no se van a registrar">Cerrar todas sin registro</button></td></tr>`+pend.map(p=>hcRow(p,{fecha:1,cerrar:1})).join('');
   h+=hcExtra.map((x,i)=>`<tr class="r-pend"><td colspan="8"><div class="row"><label>OP agregada a mano<input class="hcxop" data-i="${i}" value="${esc(x.op)}" placeholder="OP…" autocomplete="off"></label><label>Modelo<input class="hcxmod" data-i="${i}" value="${esc(x.modelo)}" autocomplete="off"></label><label>Muebles<input class="hcxmu" data-i="${i}" value="${esc(x.muebles)}" inputmode="numeric"></label><label>Reales por mueble<input class="hcxreal" data-i="${i}" value="${esc(x.real)}" inputmode="decimal"></label><button class="btn ghost sm" data-hcxdel="${i}" type="button">Quitar</button></div></td></tr>`).join('');
-  $('#hctabla').innerHTML=dia.length||pend.length||sinp.length||hcExtra.length?`<div class="scroll"><table id="hctab" class="tc${hcComV?'':' nocom'}">${head}<tbody>${h}</tbody></table></div>`:'<p class="mut">No hay OP de esta área para la fecha elegida.</p>';
+  $('#hctabla').innerHTML=(dia.length||pend.length||sinp.length||hcExtra.length?`<div class="scroll"><table id="hctab" class="tc${hcComV?'':' nocom'}">${head}<tbody>${h}</tbody></table></div>`:'<p class="mut">No hay OP de esta área para la fecha elegida.</p>')+hcListaCerr();
 }
 const hcDirty=()=>Object.values(hcEdit).some(e=>Object.keys(e).length)||hcExtra.some(x=>x.op||x.real);
 function hcSet(op,k,v){const r=hsRegBy()[op],g=r?(k==='real'?String(r.real):(r.com||'')):'';const e=hcEdit[op]||(hcEdit[op]={});if(v===g)delete e[k];else e[k]=v}
@@ -267,7 +295,11 @@ $('#hctabla').addEventListener('input',e=>{const t=e.target,tr=t.closest('tr');
 // Enter = bajar al siguiente renglón (para pasar el papel rápido)
 $('#hctabla').addEventListener('keydown',e=>{if(e.key!=='Enter'||!e.target.classList.contains('hcreal'))return;e.preventDefault();
   const I=[...document.querySelectorAll('#hctabla .hcreal')],k=I.indexOf(e.target);if(I[k+1]){I[k+1].focus();I[k+1].select()}else $('#hcsave').focus()});
-$('#hctabla').addEventListener('click',e=>{const i=e.target.dataset.hcxdel;if(i==null)return;hcExtra.splice(+i,1);hsCapturaView()});
+$('#hctabla').addEventListener('click',e=>{const d=e.target.dataset;
+  if(d.hccerrar){e.preventDefault();hcCerrar([d.hccerrar]);return}
+  if(d.hcreabrir){e.preventDefault();hcReabrir(d.hcreabrir);return}
+  if(e.target.id==='hccerrtodas'){hcCerrar(hcFilas().pend.map(p=>p.op));return}
+  const i=d.hcxdel;if(i==null)return;hcExtra.splice(+i,1);hsCapturaView()});
 $('#hcadd').onclick=()=>{hcExtra.push({op:'',modelo:'',muebles:'',real:''});hsCapturaView();const I=document.querySelectorAll('#hctabla .hcxop');if(I.length)I[I.length-1].focus()};
 $('#hcsave').onclick=()=>hcGuardar();
 $('#hcq').oninput=()=>hsCapturaView();   // los cambios sin guardar se conservan al buscar (van por OP)
@@ -288,7 +320,7 @@ const HS_ESTADOS=[{k:'ok',t:'Correcto',c:'st-ok'},{k:'mas',t:'De más',c:'st-cam
 const HSE=Object.fromEntries(HS_ESTADOS.map(x=>[x.k,x]));
 const hsChip=k=>`<span class="chip st ${HSE[k].c}">${HSE[k].t}</span>`;
 function hsDatos(){const reg=hsRegBy(),P=Object.fromEntries(hsProg.map(p=>[p.op,p]));
-  return[...new Set([...hsProg.map(p=>p.op),...Object.keys(reg)])].map(op=>{const p=P[op],r=reg[op],g=p||(r&&r.prog)||{};
+  return[...new Set([...hsProg.map(p=>p.op),...Object.keys(reg)])].filter(op=>!hsCerr[op]).map(op=>{const p=P[op],r=reg[op],g=p||(r&&r.prog)||{};
     const esp=p?(p.kgPor>0?p.hojasMueble:null):(g.hojasMueble!=null&&g.hojasMueble!==''?+g.hojasMueble:null),mu=num(g.muebles)||0,real=r?r.real:null;
     const difM=real!=null&&esp!=null?real-esp:null;
     const k=real==null?'pend':esp==null?'sinprog':Math.abs(difM)<=hsTol+1e-9?'ok':difM>0?'mas':'menos';
